@@ -1,0 +1,32 @@
+{
+  "Technology": [
+    {
+      "source_name": "TechCrunch",
+      "source_link": "https://techcrunch.com/feed/"
+    },
+    {
+      "source_name": "The Verge",
+      "source_link": "https://www.theverge.com/rss/index.xml"
+    }
+  ],
+  "Sports": [
+    {
+      "source_name": "ESPN",
+      "source_link": "https://www.espn.com/espn/rss/news"
+    },
+    {
+      "source_name": "BBC Sport",
+      "source_link": "http://feeds.bbci.co.uk/sport/rss.xml"
+    }
+  ],
+  "Local News": [
+    {
+      "source_name": "Your Local News 1",
+      "source_link": "https://yourlocalnews1.com/rss"
+    },
+    {
+      "source_name": "Your Local News 2",
+      "source_link": "https://yourlocalnews2.com/feed"
+    }
+  ]
+}
