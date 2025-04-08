@@ -6,12 +6,17 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { X } from "lucide-react"
+import { ArticleAITools } from "./ArticleAITools"
 
 export function ArticleDetail({ article, onClose }) {
     const [isContentVisible, setIsContentVisible] = useState(false)
     const [articleContent, setArticleContent] = useState(null)
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState(null)
+
+    // For now, we'll just detect English as the default language
+    // In a real implementation, this would come from Amazon Comprehend
+    const [detectedLanguage, setDetectedLanguage] = useState("en")
 
     useEffect(() => {
         // Trigger content fade-in animation after component mounts
@@ -49,6 +54,10 @@ export function ArticleDetail({ article, onClose }) {
                     }
                     setArticleContent(data)
                     setIsLoading(false)
+
+                    // In a real implementation, we would detect the language here
+                    // using Amazon Comprehend
+                    setDetectedLanguage("en") // Default to English for now
                 })
                 .catch((err) => {
                     console.error("Error fetching article content:", err)
@@ -57,6 +66,23 @@ export function ArticleDetail({ article, onClose }) {
                 })
         }
     }, [article])
+
+    // Placeholder handlers for AI features
+    const handleLanguageChange = (langCode) => {
+        console.log(`Language changed to: ${langCode}`)
+        // In a real implementation, this would call Amazon Translate
+    }
+
+    const handleTextToSpeech = () => {
+        console.log("Text to speech requested")
+        // In a real implementation, this would call Amazon Polly
+    }
+
+    const handleAIChat = () => {
+        console.log("AI chat requested")
+        // In a real implementation, this would open a chat interface
+        // powered by Amazon Lex and Comprehend
+    }
 
     if (!article) return null
 
@@ -82,10 +108,20 @@ export function ArticleDetail({ article, onClose }) {
                 </CardDescription>
             </CardHeader>
             <CardContent
-                className={`pt-2 transition-all duration-300 ease-in-out ${isContentVisible ? "opacity-100" : "opacity-0"}`}
+                className={`pt-6 transition-all duration-300 ease-in-out ${isContentVisible ? "opacity-100" : "opacity-0"}`}
             >
-                <div className="mb-6">
+                <div className="mb-6 flex flex-wrap items-center gap-2">
                     <Badge variant="secondary">{article.category}</Badge>
+
+                    {/* AI Tools */}
+                    <div className="ml-auto">
+                        <ArticleAITools
+                            detectedLanguage={detectedLanguage}
+                            onLanguageChange={handleLanguageChange}
+                            onTextToSpeech={handleTextToSpeech}
+                            onAIChat={handleAIChat}
+                        />
+                    </div>
                 </div>
 
                 {isLoading ? (
