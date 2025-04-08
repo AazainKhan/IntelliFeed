@@ -24,6 +24,7 @@ function App() {
   const [selectedSource, setSelectedSource] = useState(null)
   const [selectedArticle, setSelectedArticle] = useState(null)
   const [isDetailVisible, setIsDetailVisible] = useState(false)
+  const [isDetailHovered, setIsDetailHovered] = useState(false)
 
   const onSourceClick = useCallback(async (category, sourceName) => {
     setLoading(true)
@@ -66,6 +67,14 @@ function App() {
     setTimeout(() => {
       setSelectedArticle(null)
     }, 300) // Match transition duration
+  }, [])
+
+  const handleDetailMouseEnter = useCallback(() => {
+    setIsDetailHovered(true)
+  }, [])
+
+  const handleDetailMouseLeave = useCallback(() => {
+    setIsDetailHovered(false)
   }, [])
 
   useEffect(() => {
@@ -119,11 +128,11 @@ function App() {
           </header>
 
           <div className="flex flex-1 flex-row gap-4 p-4 overflow-hidden">
-            {/* Articles list column - always present but width changes */}
+            {/* Articles list column - now 30% width when detail is open */}
             <div
               className={`flex flex-col gap-4 overflow-auto transition-all duration-300 ease-in-out ${
-                selectedArticle ? (isDetailVisible ? "w-1/2" : "w-full") : "w-full"
-              }`}
+                selectedArticle ? (isDetailVisible ? "w-[30%]" : "w-full") : "w-full"
+              } ${isDetailHovered ? "blur-sm" : ""}`}
             >
               {loading ? (
                 Array.from({ length: 5 }).map((_, index) => <ArticleSkeleton key={index} />)
@@ -146,12 +155,14 @@ function App() {
               )}
             </div>
 
-            {/* Article detail column - conditionally rendered with animation */}
+            {/* Article detail column - now 70% width when open */}
             {selectedArticle && (
               <div
                 className={`border-l overflow-hidden transition-all duration-300 ease-in-out ${
-                  isDetailVisible ? "w-1/2 opacity-100 translate-x-0" : "w-0 opacity-0 translate-x-20"
+                  isDetailVisible ? "w-[70%] opacity-100 translate-x-0" : "w-0 opacity-0 translate-x-20"
                 }`}
+                onMouseEnter={handleDetailMouseEnter}
+                onMouseLeave={handleDetailMouseLeave}
               >
                 <div className="pl-4 h-full">
                   <ArticleDetail article={selectedArticle} onClose={closeArticleDetail} />
