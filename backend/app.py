@@ -8,11 +8,17 @@ import requests
 from bs4 import BeautifulSoup
 from newspaper import Article
 import time
+import boto3
+import base64
+from botocore.exceptions import ClientError
 
 app = Chalice(app_name='backend')
 app.debug = True
 app.api.cors = True
 
+# Initialize AWS clients
+polly_client = boto3.client('polly')
+translate_client = boto3.client('translate')
 
 # --- Load Categories from JSON ---
 def load_categories():
@@ -103,7 +109,6 @@ def get_feeds(category):
 
     return {"category": category, "articles": all_articles}
 
-
 @app.route('/article', methods=['POST'])
 def get_article_content():
     """
@@ -136,13 +141,17 @@ def get_article_content():
         </div>
         """
         
+        # Detect language using Amazon Comprehend (simplified for now)
+        detected_language = "en"  # Default to English
+        
         return {
             "url": url,
             "title": article.title,
             "content": html_content,
             "authors": article.authors,
             "publish_date": article.publish_date.isoformat() if article.publish_date else None,
-            "top_image": top_image
+            "top_image": top_image,
+            "detected_language": detected_language
         }
     except Exception as e:
         app.log.error(f"Error scraping article from {url}: {str(e)}")
@@ -193,13 +202,105 @@ def get_article_content():
                 else:
                     content_html = "<p>Could not extract article content.</p>"
             
+            # Detect language (simplified for now)
+            detected_language = "en"  # Default to English
+            
             return {
                 "url": url,
                 "content": content_html,
                 "authors": authors,
                 "top_image": top_image,
+                "detected_language": detected_language,
                 "fallback": True
             }
         except Exception as fallback_error:
             app.log.error(f"Fallback scraping failed for {url}: {str(fallback_error)}")
             return {"error": f"Failed to scrape article: {str(e)}"}, 500
+
+@app.route('/text-to-speech', methods=['POST'])
+def text_to_speech():
+    """
+    Converts article text to speech using Amazon Polly.
+    """
+    request_body = app.current_request.json_body
+    if not request_body or 'text' not in request_body:
+        return {"error": "Text is required"}, 400
+    
+    text = request_body['text']
+    voice_id = request_body.get('voice_id', 'Joanna')  # Default to Joanna voice
+    
+    try:
+        # Limit text length to avoid exceeding Polly limits
+        if len(text) > 3000:
+            text = text[:3000] + "..."
+        
+        # Call Amazon Polly to synthesize speech
+        response = polly_client.synthesize_speech(
+            Text=text,
+            OutputFormat='mp3',
+            VoiceId=voice_id,
+            Engine='neural'  # Use neural engine for better quality
+        )
+        
+        # Get the audio stream from the response
+        if "AudioStream" in response:
+            # Read the audio stream and encode as base64
+            audio_data = response["AudioStream"].read()
+            audio_base64 = base64.b64encode(audio_data).decode('utf-8')
+            
+            return {
+                "success": True,
+                "audio": audio_base64,
+                "content_type": "audio/mpeg"
+            }
+        else:
+            return {"error": "Failed to generate audio"}, 500
+    
+    except ClientError as e:
+        app.log.error(f"Error calling Amazon Polly: {str(e)}")
+        return {"error": f"Failed to generate speech: {str(e)}"}, 500
+
+@app.route('/translate', methods=['POST'])
+def translate_text():
+    """
+    Translates article text using Amazon Translate.
+    """
+    request_body = app.current_request.json_body
+    if not request_body or 'text' not in request_body or 'target_language' not in request_body:
+        return {"error": "Text and target language are required"}, 400
+    
+    text = request_body['text']
+    target_language = request_body['target_language']
+    source_language = request_body.get('source_language', 'auto')  # Auto-detect if not specified
+    
+    try:
+        # Limit text length to avoid exceeding Translate limits
+        # Amazon Translate has a limit of 5000 bytes per request
+        if len(text.encode('utf-8')) > 5000:
+            # Truncate text to approximately 5000 bytes
+            text = text.encode('utf-8')[:4900].decode('utf-8', errors='ignore') + "..."
+        
+        # Call Amazon Translate to translate the text
+        if source_language == 'auto':
+            response = translate_client.translate_text(
+                Text=text,
+                TargetLanguageCode=target_language
+            )
+        else:
+            response = translate_client.translate_text(
+                Text=text,
+                SourceLanguageCode=source_language,
+                TargetLanguageCode=target_language
+            )
+        
+        # Return the translated text
+        return {
+            "success": True,
+            "translated_text": response.get('TranslatedText', ''),
+            "source_language": response.get('SourceLanguageCode', source_language),
+            "target_language": target_language
+        }
+    
+    except ClientError as e:
+        app.log.error(f"Error calling Amazon Translate: {str(e)}")
+        return {"error": f"Failed to translate text: {str(e)}"}, 500

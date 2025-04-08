@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -13,10 +13,14 @@ export function ArticleDetail({ article, onClose }) {
     const [articleContent, setArticleContent] = useState(null)
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState(null)
-
-    // For now, we'll just detect English as the default language
-    // In a real implementation, this would come from Amazon Comprehend
     const [detectedLanguage, setDetectedLanguage] = useState("en")
+    const [translatedContent, setTranslatedContent] = useState(null)
+    const [isTranslating, setIsTranslating] = useState(false)
+    const [currentLanguage, setCurrentLanguage] = useState("en")
+
+    // Store the original text for TTS and translation
+    const originalTextRef = useRef("")
+    const translatedTextRef = useRef("")
 
     useEffect(() => {
         // Trigger content fade-in animation after component mounts
@@ -28,6 +32,15 @@ export function ArticleDetail({ article, onClose }) {
     }, [])
 
     useEffect(() => {
+        // Reset state when a new article is loaded
+        if (article) {
+            setTranslatedContent(null)
+            setCurrentLanguage("en")
+            setDetectedLanguage("en")
+            originalTextRef.current = ""
+            translatedTextRef.current = ""
+        }
+
         // Fetch the full article content when an article is selected
         if (article && article.link) {
             setIsLoading(true)
@@ -55,9 +68,16 @@ export function ArticleDetail({ article, onClose }) {
                     setArticleContent(data)
                     setIsLoading(false)
 
-                    // In a real implementation, we would detect the language here
-                    // using Amazon Comprehend
-                    setDetectedLanguage("en") // Default to English for now
+                    // Store the detected language
+                    if (data.detected_language) {
+                        setDetectedLanguage(data.detected_language)
+                        setCurrentLanguage(data.detected_language)
+                    }
+
+                    // Extract plain text from HTML content for TTS and translation
+                    const tempDiv = document.createElement("div")
+                    tempDiv.innerHTML = data.content
+                    originalTextRef.current = tempDiv.textContent || tempDiv.innerText || ""
                 })
                 .catch((err) => {
                     console.error("Error fetching article content:", err)
@@ -67,21 +87,70 @@ export function ArticleDetail({ article, onClose }) {
         }
     }, [article])
 
-    // Placeholder handlers for AI features
-    const handleLanguageChange = (langCode) => {
-        console.log(`Language changed to: ${langCode}`)
-        // In a real implementation, this would call Amazon Translate
+    const handleTranslate = async (targetLanguage) => {
+        if (!articleContent || targetLanguage === detectedLanguage) {
+            // If target language is the same as detected language, reset to original content
+            setTranslatedContent(null)
+            setCurrentLanguage(detectedLanguage)
+            return
+        }
+
+        setIsTranslating(true)
+
+        try {
+            // Call the backend to translate the text
+            const response = await fetch("http://localhost:8000/translate", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    text: originalTextRef.current,
+                    source_language: detectedLanguage,
+                    target_language: targetLanguage,
+                }),
+            })
+
+            if (!response.ok) {
+                throw new Error("Failed to translate text")
+            }
+
+            const data = await response.json()
+
+            if (data.success && data.translated_text) {
+                // Store the translated text for TTS
+                translatedTextRef.current = data.translated_text
+
+                // Create HTML content from the translated text
+                const translatedHtml = `
+          <div class="article-content">
+            <div class="article-text">
+              ${data.translated_text.replace(/\n/g, "<br />")}
+            </div>
+          </div>
+        `
+
+                setTranslatedContent(translatedHtml)
+                setCurrentLanguage(targetLanguage)
+            } else {
+                throw new Error("Invalid translation data received")
+            }
+        } catch (error) {
+            console.error("Error translating text:", error)
+            // If translation fails, reset to original content
+            setTranslatedContent(null)
+            setCurrentLanguage(detectedLanguage)
+        } finally {
+            setIsTranslating(false)
+        }
     }
 
-    const handleTextToSpeech = () => {
-        console.log("Text to speech requested")
-        // In a real implementation, this would call Amazon Polly
-    }
-
-    const handleAIChat = () => {
-        console.log("AI chat requested")
-        // In a real implementation, this would open a chat interface
-        // powered by Amazon Lex and Comprehend
+    // Get the current text for TTS based on whether we're showing translated content
+    const getCurrentText = () => {
+        if (currentLanguage !== detectedLanguage && translatedTextRef.current) {
+            return translatedTextRef.current
+        }
+        return originalTextRef.current
     }
 
     if (!article) return null
@@ -117,9 +186,9 @@ export function ArticleDetail({ article, onClose }) {
                     <div className="ml-auto">
                         <ArticleAITools
                             detectedLanguage={detectedLanguage}
-                            onLanguageChange={handleLanguageChange}
-                            onTextToSpeech={handleTextToSpeech}
-                            onAIChat={handleAIChat}
+                            articleText={getCurrentText()}
+                            onTranslate={handleTranslate}
+                            isTranslating={isTranslating}
                         />
                     </div>
                 </div>
@@ -155,7 +224,19 @@ export function ArticleDetail({ article, onClose }) {
                                 }}
                             />
                         )}
-                        <div dangerouslySetInnerHTML={{ __html: articleContent.content }} />
+
+                        {/* Show translated content if available, otherwise show original content */}
+                        {isTranslating ? (
+                            <div className="space-y-4">
+                                <Skeleton className="h-4 w-full" />
+                                <Skeleton className="h-4 w-full" />
+                                <Skeleton className="h-4 w-3/4" />
+                                <Skeleton className="h-4 w-full" />
+                                <Skeleton className="h-4 w-full" />
+                            </div>
+                        ) : (
+                            <div dangerouslySetInnerHTML={{ __html: translatedContent || articleContent.content }} />
+                        )}
                     </div>
                 ) : (
                     <div className="space-y-4">

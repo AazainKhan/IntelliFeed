@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
-import { Globe, MessageSquare, Volume2 } from "lucide-react"
+import { Globe, MessageSquare, Volume2, Loader2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 
 // List of languages we support for translation
@@ -22,8 +22,32 @@ const SUPPORTED_LANGUAGES = [
     { code: "hi", name: "Hindi" },
 ]
 
-export function ArticleAITools({ detectedLanguage = "en", onLanguageChange, onTextToSpeech, onAIChat }) {
+// Map language codes to Polly voices
+const LANGUAGE_TO_VOICE = {
+    en: "Joanna",
+    es: "Lupe",
+    fr: "Léa",
+    de: "Vicki",
+    it: "Bianca",
+    pt: "Camila",
+    zh: "Zhiyu",
+    ja: "Takumi",
+    ko: "Seoyeon",
+    ar: "Zeina",
+    ru: "Tatyana",
+    hi: "Aditi",
+}
+
+export function ArticleAITools({
+    detectedLanguage = "en",
+    articleText,
+    onLanguageChange,
+    onTranslate,
+    isTranslating = false,
+}) {
     const [selectedLanguage, setSelectedLanguage] = useState(detectedLanguage)
+    const [isPlayingAudio, setIsPlayingAudio] = useState(false)
+    const [audioElement, setAudioElement] = useState(null)
 
     // Find the language name from the code
     const getLanguageName = (code) => {
@@ -31,11 +55,86 @@ export function ArticleAITools({ detectedLanguage = "en", onLanguageChange, onTe
         return language ? language.name : "Unknown"
     }
 
-    const handleLanguageSelect = (langCode) => {
+    const handleLanguageSelect = async (langCode) => {
+        if (langCode === selectedLanguage) return
+
         setSelectedLanguage(langCode)
-        if (onLanguageChange) {
-            onLanguageChange(langCode)
+
+        // Only translate if the language is different from the detected language
+        if (langCode !== detectedLanguage && articleText) {
+            if (onTranslate) {
+                onTranslate(langCode)
+            }
         }
+    }
+
+    const handleTextToSpeech = async () => {
+        if (isPlayingAudio) {
+            // Stop current audio if playing
+            if (audioElement) {
+                audioElement.pause()
+                audioElement.currentTime = 0
+                setIsPlayingAudio(false)
+                setAudioElement(null)
+            }
+            return
+        }
+
+        if (!articleText) return
+
+        setIsPlayingAudio(true)
+
+        try {
+            // Get the appropriate voice for the current language
+            const voice = LANGUAGE_TO_VOICE[selectedLanguage] || "Joanna"
+
+            // Call the backend to convert text to speech
+            const response = await fetch("http://localhost:8000/text-to-speech", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    text: articleText,
+                    voice_id: voice,
+                }),
+            })
+
+            if (!response.ok) {
+                throw new Error("Failed to generate speech")
+            }
+
+            const data = await response.json()
+
+            if (data.success && data.audio) {
+                // Create an audio element and play the speech
+                const audio = new Audio(`data:${data.content_type};base64,${data.audio}`)
+                setAudioElement(audio)
+
+                audio.onended = () => {
+                    setIsPlayingAudio(false)
+                    setAudioElement(null)
+                }
+
+                audio.onerror = () => {
+                    console.error("Error playing audio")
+                    setIsPlayingAudio(false)
+                    setAudioElement(null)
+                }
+
+                audio.play()
+            } else {
+                throw new Error("Invalid audio data received")
+            }
+        } catch (error) {
+            console.error("Error with text-to-speech:", error)
+            setIsPlayingAudio(false)
+        }
+    }
+
+    const handleAIChat = () => {
+        console.log("AI chat requested")
+        // This will be implemented later
     }
 
     return (
@@ -43,8 +142,8 @@ export function ArticleAITools({ detectedLanguage = "en", onLanguageChange, onTe
             {/* Language dropdown */}
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="h-7 gap-1 px-2">
-                        <Globe className="h-3.5 w-3.5" />
+                    <Button variant="outline" size="sm" className="h-7 gap-1 px-2" disabled={isTranslating}>
+                        {isTranslating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Globe className="h-3.5 w-3.5" />}
                         <span>{getLanguageName(selectedLanguage)}</span>
                     </Button>
                 </DropdownMenuTrigger>
@@ -67,8 +166,15 @@ export function ArticleAITools({ detectedLanguage = "en", onLanguageChange, onTe
             </DropdownMenu>
 
             {/* Text-to-Speech button */}
-            <Button variant="outline" size="sm" className="h-7 w-7 p-0" title="Listen to article" onClick={onTextToSpeech}>
-                <Volume2 className="h-3.5 w-3.5" />
+            <Button
+                variant="outline"
+                size="sm"
+                className="h-7 w-7 p-0"
+                title={isPlayingAudio ? "Stop audio" : "Listen to article"}
+                onClick={handleTextToSpeech}
+                disabled={!articleText}
+            >
+                {isPlayingAudio ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Volume2 className="h-3.5 w-3.5" />}
                 <span className="sr-only">Text to Speech</span>
             </Button>
 
@@ -78,7 +184,8 @@ export function ArticleAITools({ detectedLanguage = "en", onLanguageChange, onTe
                 size="sm"
                 className="h-7 gap-1 px-2"
                 title="Ask AI about this article"
-                onClick={onAIChat}
+                onClick={handleAIChat}
+                disabled={!articleText}
             >
                 <MessageSquare className="h-3.5 w-3.5" />
                 <span>AI Chat</span>
