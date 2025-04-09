@@ -16,6 +16,23 @@ import { ModeToggle } from "@/components/mode-toggle"
 import { ThemeProvider } from "@/components/theme-provider"
 import { ArticleCard, ArticleSkeleton } from "@/components/ArticleCard"
 import { ArticleDetail } from "@/components/ArticleDetail"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+
+// Cookie helper functions
+function getCookie(name) {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(';').shift();
+  return null;
+}
+
+function setCookie(name, value, days = 7) {
+  const date = new Date();
+  date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+  const expires = `expires=${date.toUTCString()}`;
+  document.cookie = `${name}=${value}; ${expires}; path=/`;
+}
 
 function App() {
   const [articles, setArticles] = useState([])
@@ -25,6 +42,23 @@ function App() {
   const [selectedArticle, setSelectedArticle] = useState(null)
   const [isDetailVisible, setIsDetailVisible] = useState(false)
   const [isDetailHovered, setIsDetailHovered] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false) // Default to closed
+  const [sortOrder, setSortOrder] = useState("newest")
+
+  // Load sidebar state on initial render
+  useEffect(() => {
+    // Check if we have a saved sidebar state
+    const savedState = getCookie('sidebar:state');
+    if (savedState !== null) {
+      setSidebarOpen(savedState === 'true');
+    }
+  }, []);
+
+  // Handle sidebar state changes
+  const handleSidebarOpenChange = (open) => {
+    setSidebarOpen(open);
+    setCookie('sidebar:state', String(open));
+  };
 
   const onSourceClick = useCallback(async (category, sourceName) => {
     setLoading(true)
@@ -83,9 +117,37 @@ function App() {
     }
   }, [selectedCategory, loading, articles.length, selectedSource])
 
+  const handleSortChange = (value) => {
+    setSortOrder(value)
+    let sortedArticles = [...articles]
+
+    switch (value) {
+      case "oldest":
+        sortedArticles.sort((a, b) => new Date(a.published) - new Date(b.published));
+        break
+      case "newest":
+        sortedArticles.sort((a, b) => new Date(b.published) - new Date(a.published));
+        break
+      case "alphabetical_a_z":
+        sortedArticles.sort((a, b) => a.title.localeCompare(b.title))
+        break
+      case "alphabetical_z_a":
+        sortedArticles.sort((a, b) => b.title.localeCompare(a.title))
+        break
+      default:
+        break
+    }
+
+    setArticles(sortedArticles)
+  }
+
   return (
     <ThemeProvider>
-      <SidebarProvider>
+      <SidebarProvider 
+        defaultOpen={sidebarOpen} 
+        open={sidebarOpen} 
+        onOpenChange={handleSidebarOpenChange}
+      >
         <AppSidebar onSourceClick={onSourceClick} />
         <SidebarInset>
           <header className="flex sticky top-0 z-10 bg-background h-16 shrink-0 items-center justify-between gap-2 border-b px-4">
@@ -134,6 +196,25 @@ function App() {
                 selectedArticle ? (isDetailVisible ? "w-[30%]" : "w-full") : "w-full"
               } ${isDetailHovered ? "blur-sm" : ""}`}
             >
+              {!loading && articles.length > 0 && (
+                <div className="flex justify-between items-center mb-2 gap-4">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="sort">Sort by:</Label>
+                    <Select value={sortOrder} onValueChange={handleSortChange}>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Newest" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="newest">Newest to Oldest</SelectItem>
+                        <SelectItem value="oldest">Oldest to Newest</SelectItem>
+                        <SelectItem value="alphabetical_a_z">Alphabetical (A-Z)</SelectItem>
+                        <SelectItem value="alphabetical_z_a">Alphabetical (Z-A)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                </div>
+              )}
               {loading ? (
                 Array.from({ length: 5 }).map((_, index) => <ArticleSkeleton key={index} />)
               ) : articles.length > 0 ? (

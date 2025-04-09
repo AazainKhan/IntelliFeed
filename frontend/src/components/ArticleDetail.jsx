@@ -88,8 +88,8 @@ export function ArticleDetail({ article, onClose }) {
     }, [article])
 
     const handleTranslate = async (targetLanguage) => {
+        // If target language is the same as detected language, reset to original content
         if (!articleContent || targetLanguage === detectedLanguage) {
-            // If target language is the same as detected language, reset to original content
             setTranslatedContent(null)
             setCurrentLanguage(detectedLanguage)
             return
@@ -189,6 +189,7 @@ export function ArticleDetail({ article, onClose }) {
                             articleText={getCurrentText()}
                             onTranslate={handleTranslate}
                             isTranslating={isTranslating}
+                            currentLanguage={currentLanguage} // Add current language prop
                         />
                     </div>
                 </div>

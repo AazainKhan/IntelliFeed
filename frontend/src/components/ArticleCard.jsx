@@ -104,7 +104,9 @@ export function ArticleCard({ article, onArticleClick }) {
 
                     {/* Summary on the right */}
                     <div className="flex-1">
-                        <p className="text-muted-foreground text-sm">{article.summary}</p>
+                        <p className="text-muted-foreground text-sm line-clamp-2 md:line-clamp-6">
+                          {article.summary}
+                        </p>
                     </div>
                 </div>
 

@@ -228,19 +228,69 @@ def text_to_speech():
     
     text = request_body['text']
     voice_id = request_body.get('voice_id', 'Joanna')  # Default to Joanna voice
+    language_code = request_body.get('language_code', 'en')  # Get language code from request
     
     try:
         # Limit text length to avoid exceeding Polly limits
         if len(text) > 3000:
             text = text[:3000] + "..."
         
+        # Map of language codes to Amazon Polly language codes
+        # Some languages need specific format for Polly
+        language_mapping = {
+            'en': 'en-US',
+            'es': 'es-ES',
+            'fr': 'fr-FR',
+            'de': 'de-DE',
+            'it': 'it-IT',
+            'pt': 'pt-BR',
+            'zh': 'cmn-CN',
+            'ja': 'ja-JP',
+            'ko': 'ko-KR',
+            'ar': 'arb',
+            'ru': 'ru-RU',
+            'hi': 'hi-IN'
+        }
+        
+        # Voice mapping to ensure we're using supported voices for each language
+        voice_mapping = {
+            'en': 'Joanna',
+            'es': 'Lupe',
+            'fr': 'Lea',  # Note: Corrected from Léa to Lea (no accent)
+            'de': 'Vicki',
+            'it': 'Bianca',
+            'pt': 'Camila',
+            'zh': 'Zhiyu',
+            'ja': 'Takumi',
+            'ko': 'Seoyeon',
+            'ar': 'Zeina',
+            'ru': 'Tatyana',
+            'hi': 'Aditi'
+        }
+        
+        # Get the appropriate voice and language code
+        polly_language = language_mapping.get(language_code, 'en-US')
+        polly_voice = voice_mapping.get(language_code, 'Joanna')
+        
+        # Override voice_id if we have a specific mapping for this language
+        if language_code in voice_mapping:
+            voice_id = voice_mapping[language_code]
+        
+        # Configure the speech synthesis request
+        synthesis_params = {
+            'Text': text,
+            'OutputFormat': 'mp3',
+            'VoiceId': voice_id,
+            'Engine': 'neural'  # Use neural engine for better quality
+        }
+        
+        # For certain languages, explicitly set LanguageCode
+        synthesis_params['LanguageCode'] = polly_language
+        
+        app.log.info(f"Synthesizing speech with params: {synthesis_params}")
+        
         # Call Amazon Polly to synthesize speech
-        response = polly_client.synthesize_speech(
-            Text=text,
-            OutputFormat='mp3',
-            VoiceId=voice_id,
-            Engine='neural'  # Use neural engine for better quality
-        )
+        response = polly_client.synthesize_speech(**synthesis_params)
         
         # Get the audio stream from the response
         if "AudioStream" in response:

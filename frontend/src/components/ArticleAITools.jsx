@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
-import { Globe, MessageSquare, Volume2, Loader2 } from "lucide-react"
+import { Globe, MessageSquare, Volume2, Loader2, Pause } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 
 // List of languages we support for translation
@@ -44,9 +44,11 @@ export function ArticleAITools({
     onLanguageChange,
     onTranslate,
     isTranslating = false,
+    currentLanguage,
 }) {
-    const [selectedLanguage, setSelectedLanguage] = useState(detectedLanguage)
+    const [selectedLanguage, setSelectedLanguage] = useState(currentLanguage || detectedLanguage)
     const [isPlayingAudio, setIsPlayingAudio] = useState(false)
+    const [isLoadingAudio, setIsLoadingAudio] = useState(false)
     const [audioElement, setAudioElement] = useState(null)
 
     // Find the language name from the code
@@ -60,33 +62,27 @@ export function ArticleAITools({
 
         setSelectedLanguage(langCode)
 
-        // Only translate if the language is different from the detected language
-        if (langCode !== detectedLanguage && articleText) {
-            if (onTranslate) {
-                onTranslate(langCode)
-            }
+        // Always call onTranslate regardless of whether it matches the detected language
+        // This ensures we can switch back to the original language
+        if (onTranslate) {
+            onTranslate(langCode)
         }
     }
 
     const handleTextToSpeech = async () => {
-        if (isPlayingAudio) {
-            // Stop current audio if playing
-            if (audioElement) {
-                audioElement.pause()
-                audioElement.currentTime = 0
-                setIsPlayingAudio(false)
-                setAudioElement(null)
-            }
-            return
+        // If there's already an audio element, use togglePlayPause to resume playback
+        if (audioElement) {
+            togglePlayPause();
+            return;
         }
 
-        if (!articleText) return
+        if (!articleText) return;
 
-        setIsPlayingAudio(true)
+        setIsLoadingAudio(true);
 
         try {
             // Get the appropriate voice for the current language
-            const voice = LANGUAGE_TO_VOICE[selectedLanguage] || "Joanna"
+            const voice = LANGUAGE_TO_VOICE[selectedLanguage] || "Joanna";
 
             // Call the backend to convert text to speech
             const response = await fetch("http://localhost:8000/text-to-speech", {
@@ -97,40 +93,76 @@ export function ArticleAITools({
                 body: JSON.stringify({
                     text: articleText,
                     voice_id: voice,
+                    language_code: selectedLanguage
                 }),
-            })
+            });
 
             if (!response.ok) {
-                throw new Error("Failed to generate speech")
+                throw new Error("Failed to generate speech");
             }
 
-            const data = await response.json()
+            const data = await response.json();
 
             if (data.success && data.audio) {
                 // Create an audio element and play the speech
-                const audio = new Audio(`data:${data.content_type};base64,${data.audio}`)
-                setAudioElement(audio)
+                const audio = new Audio(`data:${data.content_type};base64,${data.audio}`);
+                setAudioElement(audio);
 
                 audio.onended = () => {
-                    setIsPlayingAudio(false)
-                    setAudioElement(null)
-                }
+                    setIsPlayingAudio(false);
+                    // Don't clear the audio element when it ends naturally
+                    // This allows the user to replay it if desired
+                };
 
                 audio.onerror = () => {
-                    console.error("Error playing audio")
-                    setIsPlayingAudio(false)
-                    setAudioElement(null)
-                }
+                    console.error("Error playing audio");
+                    setIsPlayingAudio(false);
+                    setIsLoadingAudio(false);
+                    setAudioElement(null);
+                };
 
-                audio.play()
+                // Set playing to true and loading to false once audio starts playing
+                audio.onplaying = () => {
+                    setIsPlayingAudio(true);
+                    setIsLoadingAudio(false);
+                };
+
+                // Start loading the audio
+                audio.play().catch(error => {
+                    console.error("Error playing audio:", error);
+                    setIsPlayingAudio(false);
+                    setIsLoadingAudio(false);
+                    setAudioElement(null);
+                });
             } else {
-                throw new Error("Invalid audio data received")
+                throw new Error("Invalid audio data received");
             }
         } catch (error) {
-            console.error("Error with text-to-speech:", error)
-            setIsPlayingAudio(false)
+            console.error("Error with text-to-speech:", error);
+            setIsPlayingAudio(false);
+            setIsLoadingAudio(false);
         }
-    }
+    };
+
+    // Function to toggle play/pause when audio is already loaded
+    const togglePlayPause = () => {
+        if (!audioElement) return;
+        
+        if (audioElement.paused) {
+            // Resume playback from current position
+            audioElement.play().then(() => {
+                setIsPlayingAudio(true);
+            }).catch(error => {
+                console.error("Error resuming audio:", error);
+                setIsPlayingAudio(false);
+            });
+        } else {
+            // Pause playback (keep the current position)
+            audioElement.pause();
+            setIsPlayingAudio(false);
+            // Don't reset currentTime or clear the audio element
+        }
+    };
 
     const handleAIChat = () => {
         console.log("AI chat requested")
@@ -170,12 +202,23 @@ export function ArticleAITools({
                 variant="outline"
                 size="sm"
                 className="h-7 w-7 p-0"
-                title={isPlayingAudio ? "Stop audio" : "Listen to article"}
-                onClick={handleTextToSpeech}
-                disabled={!articleText}
+                title={
+                    isLoadingAudio ? "Loading audio..." :
+                    isPlayingAudio ? "Pause audio" : audioElement && audioElement.paused ? "Resume audio" : "Listen to article"
+                }
+                onClick={isLoadingAudio ? undefined : handleTextToSpeech}
+                disabled={!articleText || isLoadingAudio}
             >
-                {isPlayingAudio ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Volume2 className="h-3.5 w-3.5" />}
-                <span className="sr-only">Text to Speech</span>
+                {isLoadingAudio ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : isPlayingAudio ? (
+                    <Pause className="h-3.5 w-3.5" />
+                ) : (
+                    <Volume2 className="h-3.5 w-3.5" />
+                )}
+                <span className="sr-only">
+                    {isLoadingAudio ? "Loading audio" : isPlayingAudio ? "Pause audio" : "Play audio"}
+                </span>
             </Button>
 
             {/* AI Chat button */}
