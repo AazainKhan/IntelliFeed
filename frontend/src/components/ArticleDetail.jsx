@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { X } from "lucide-react"
+import { X, ExternalLink } from "lucide-react"
 import { ArticleAITools } from "./ArticleAITools"
 
 export function ArticleDetail({ article, onClose }) {
@@ -17,6 +17,9 @@ export function ArticleDetail({ article, onClose }) {
     const [translatedContent, setTranslatedContent] = useState(null)
     const [isTranslating, setIsTranslating] = useState(false)
     const [currentLanguage, setCurrentLanguage] = useState("en")
+    const [showAISummary, setShowAISummary] = useState(false)
+    const [aiSummary, setAISummary] = useState("")
+    const [isSummarizing, setIsSummarizing] = useState(false)
 
     // Store the original text for TTS and translation
     const originalTextRef = useRef("")
@@ -39,6 +42,8 @@ export function ArticleDetail({ article, onClose }) {
             setDetectedLanguage("en")
             originalTextRef.current = ""
             translatedTextRef.current = ""
+            setShowAISummary(false)
+            setAISummary("")
         }
 
         // Fetch the full article content when an article is selected
@@ -153,103 +158,213 @@ export function ArticleDetail({ article, onClose }) {
         return originalTextRef.current
     }
 
+    // Handle AI summary generation
+    const handleGenerateSummary = async () => {
+        if (!articleContent) return
+
+        setIsSummarizing(true)
+        setShowAISummary(true)
+
+        // Simulate AI summary generation (replace with actual API call)
+        try {
+            // This would be replaced with your actual API call
+            // For now, we'll simulate a delay and return a placeholder summary
+            setTimeout(() => {
+                const placeholderSummary = `
+                    <h3>Key Points</h3>
+                    <ul>
+                        <li>This article discusses ${article.title.split(" ").slice(0, 3).join(" ")}...</li>
+                        <li>The main argument centers around the importance of this topic.</li>
+                        <li>Several experts were cited providing different perspectives.</li>
+                    </ul>
+                    <h3>Summary</h3>
+                    <p>This is an AI-generated summary of the article. In a real implementation, 
+                    this would contain a concise overview of the key points and main arguments 
+                    presented in the article.</p>
+                `
+                setAISummary(placeholderSummary)
+                setIsSummarizing(false)
+            }, 1500)
+
+            // Actual implementation would look something like:
+            /*
+                  const response = await fetch("http://localhost:8000/summarize", {
+                      method: "POST",
+                      headers: {
+                          "Content-Type": "application/json",
+                      },
+                      body: JSON.stringify({
+                          text: getCurrentText(),
+                          language: currentLanguage,
+                      }),
+                  });
+                  
+                  if (!response.ok) {
+                      throw new Error("Failed to generate summary");
+                  }
+                  
+                  const data = await response.json();
+                  setAISummary(data.summary);
+                  */
+        } catch (error) {
+            console.error("Error generating summary:", error)
+            setAISummary("<p>Failed to generate summary. Please try again later.</p>")
+        } finally {
+            setIsSummarizing(false)
+        }
+    }
+
+    // Close the AI summary panel
+    const handleCloseSummary = () => {
+        setShowAISummary(false)
+    }
+
     if (!article) return null
 
     return (
-        <Card className="shadow-md h-full overflow-auto">
-            <CardHeader className="sticky top-0 bg-card z-10 border-b">
-                <div className="flex justify-between items-start">
-                    <CardTitle className="pr-8 text-2xl font-bold">{article.title}</CardTitle>
-                    <Button variant="ghost" size="icon" className="absolute right-4 top-4" onClick={onClose}>
-                        <X className="h-4 w-4" />
-                        <span className="sr-only">Close</span>
-                    </Button>
-                </div>
-                <CardDescription className="mt-2">
-                    <div className="flex flex-col space-y-1">
-                        <div>
-                            {new Date(article.published).toLocaleDateString()} • {article.source_name}
-                        </div>
-                        {articleContent?.authors && articleContent.authors.length > 0 && (
-                            <div className="text-sm font-medium">By {articleContent.authors.join(", ")}</div>
-                        )}
-                    </div>
-                </CardDescription>
-            </CardHeader>
-            <CardContent
-                className={`pt-6 transition-all duration-300 ease-in-out ${isContentVisible ? "opacity-100" : "opacity-0"}`}
-            >
-                <div className="mb-6 flex flex-wrap items-center gap-2">
-                    <Badge variant="secondary">{article.category}</Badge>
-
-                    {/* AI Tools */}
-                    <div className="ml-auto">
-                        <ArticleAITools
-                            detectedLanguage={detectedLanguage}
-                            articleText={getCurrentText()}
-                            onTranslate={handleTranslate}
-                            isTranslating={isTranslating}
-                            currentLanguage={currentLanguage} // Add current language prop
-                        />
-                    </div>
-                </div>
-
-                {isLoading ? (
-                    <div className="space-y-4">
-                        <Skeleton className="h-4 w-full" />
-                        <Skeleton className="h-4 w-full" />
-                        <Skeleton className="h-4 w-3/4" />
-                        <Skeleton className="h-40 w-full" />
-                        <Skeleton className="h-4 w-full" />
-                        <Skeleton className="h-4 w-full" />
-                        <Skeleton className="h-4 w-2/3" />
-                    </div>
-                ) : error ? (
-                    <div className="text-destructive">
-                        <p>{error}</p>
-                        <div className="mt-6">
-                            <a href={article.link} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                                Read on original website
+        <div className={`flex transition-all duration-300 ease-in-out ${showAISummary ? "space-x-4" : ""}`}>
+            {/* Main article content - shrinks when summary is shown */}
+            <Card className={`shadow-md overflow-auto transition-all duration-300 ${showAISummary ? "w-2/3" : "w-full"}`}>
+                <CardHeader className="sticky top-0 bg-card z-10 border-b">
+                    <div className="flex justify-between items-start">
+                        <div className="flex items-center pr-8">
+                            <CardTitle className="text-2xl font-bold">{article.title}</CardTitle>
+                            <a
+                                href={article.link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="ml-2 text-muted-foreground hover:text-primary"
+                                title="Open original article"
+                            >
+                                <ExternalLink className="h-6 w-6" />
+                                <span className="sr-only">Open original article</span>
                             </a>
                         </div>
+                        <Button variant="ghost" size="icon" className="absolute right-4 top-4" onClick={onClose}>
+                            <X className="h-4 w-4" />
+                            <span className="sr-only">Close</span>
+                        </Button>
                     </div>
-                ) : articleContent ? (
-                    <div className="rich-text-content">
-                        {articleContent.top_image && (
-                            <img
-                                src={articleContent.top_image || "/placeholder.svg"}
-                                alt="Article featured image"
-                                className="w-full rounded-lg mb-6 object-cover max-h-80"
-                                onError={(e) => {
-                                    e.currentTarget.style.display = "none"
-                                }}
-                            />
-                        )}
+                    <CardDescription className="mt-2">
+                        <div className="flex flex-col space-y-1">
+                            <div>
+                                {new Date(article.published).toLocaleDateString()} • {article.source_name}
+                            </div>
+                            {articleContent?.authors && articleContent.authors.length > 0 && (
+                                <div className="text-sm font-medium">By {articleContent.authors.join(", ")}</div>
+                            )}
+                        </div>
+                    </CardDescription>
+                </CardHeader>
+                <CardContent
+                    className={`pt-6 transition-all duration-300 ease-in-out ${isContentVisible ? "opacity-100" : "opacity-0"}`}
+                >
 
-                        {/* Show translated content if available, otherwise show original content */}
-                        {isTranslating ? (
+
+                    {isLoading ? (
+                        <div className="space-y-4">
+                            <Skeleton className="h-4 w-full" />
+                            <Skeleton className="h-4 w-full" />
+                            <Skeleton className="h-4 w-3/4" />
+                            <Skeleton className="h-40 w-full" />
+                            <Skeleton className="h-4 w-full" />
+                            <Skeleton className="h-4 w-full" />
+                            <Skeleton className="h-4 w-2/3" />
+                        </div>
+                    ) : error ? (
+                        <div className="text-destructive">
+                            <p>{error}</p>
+                            <div className="mt-6">
+                                <a
+                                    href={article.link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-primary hover:underline"
+                                >
+                                    Read on original website
+                                </a>
+                            </div>
+                        </div>
+                    ) : articleContent ? (
+                        <div className="rich-text-content mx-auto max-w-2xl">
+                            <div className="mb-6 flex flex-wrap items-center gap-2">
+                                <Badge variant="secondary">{article.category}</Badge>
+
+                                {/* AI Tools - using the existing component */}
+                                <div className="ml-auto">
+                                    <ArticleAITools
+                                        detectedLanguage={detectedLanguage}
+                                        articleText={getCurrentText()}
+                                        onTranslate={handleTranslate}
+                                        isTranslating={isTranslating}
+                                        currentLanguage={currentLanguage}
+                                        onSummarize={handleGenerateSummary}
+                                        isSummarizing={isSummarizing}
+                                    />
+                                </div>
+                            </div>
+                            {articleContent.top_image && (
+                                <img
+                                    src={articleContent.top_image || "/placeholder.svg"}
+                                    alt="Article featured image"
+                                    className="w-full rounded-lg mb-6 object-cover max-h-80"
+                                    onError={(e) => {
+                                        e.currentTarget.style.display = "none"
+                                    }}
+                                />
+                            )}
+
+                            {/* Show translated content if available, otherwise show original content */}
+                            {isTranslating ? (
+                                <div className="space-y-4">
+                                    <Skeleton className="h-4 w-full" />
+                                    <Skeleton className="h-4 w-full" />
+                                    <Skeleton className="h-4 w-3/4" />
+                                    <Skeleton className="h-4 w-full" />
+                                    <Skeleton className="h-4 w-full" />
+                                </div>
+                            ) : (
+                                <div dangerouslySetInnerHTML={{ __html: translatedContent || articleContent.content }} />
+                            )}
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            <p>{article.summary}</p>
+                            <div className="mt-6"></div>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+
+            {/* AI Summary Card - appears when summary is requested */}
+            {showAISummary && (
+                <Card className="shadow-md overflow-auto w-1/3 transition-all duration-300 ease-in-out">
+                    <CardHeader className="sticky top-0 bg-card z-10 border-b">
+                        <div className="flex justify-between items-center">
+                            <CardTitle className="text-xl font-bold">AI Summary</CardTitle>
+                            <Button variant="ghost" size="icon" onClick={handleCloseSummary}>
+                                <X className="h-4 w-4" />
+                                <span className="sr-only">Close summary</span>
+                            </Button>
+                        </div>
+                        <CardDescription>AI-generated summary of the article</CardDescription>
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                        {isSummarizing ? (
                             <div className="space-y-4">
                                 <Skeleton className="h-4 w-full" />
                                 <Skeleton className="h-4 w-full" />
                                 <Skeleton className="h-4 w-3/4" />
                                 <Skeleton className="h-4 w-full" />
+                                <Skeleton className="h-4 w-2/3" />
                                 <Skeleton className="h-4 w-full" />
                             </div>
                         ) : (
-                            <div dangerouslySetInnerHTML={{ __html: translatedContent || articleContent.content }} />
+                            <div className="prose prose-sm dark:prose-invert" dangerouslySetInnerHTML={{ __html: aiSummary }} />
                         )}
-                    </div>
-                ) : (
-                    <div className="space-y-4">
-                        <p>{article.summary}</p>
-                        <div className="mt-6">
-                            <a href={article.link} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                                Read on original website
-                            </a>
-                        </div>
-                    </div>
-                )}
-            </CardContent>
-        </Card>
+                    </CardContent>
+                </Card>
+            )}
+        </div>
     )
 }

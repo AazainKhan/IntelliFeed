@@ -17,6 +17,8 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { ArticleCard, ArticleSkeleton } from "@/components/ArticleCard"
 import { ArticleDetail } from "@/components/ArticleDetail"
 import { Label } from "@/components/ui/label"
+import { RefreshCw } from "lucide-react"
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 // Cookie helper functions
@@ -141,6 +143,26 @@ function App() {
     setArticles(sortedArticles)
   }
 
+  const refreshArticles = useCallback(async () => {
+    setLoading(true)
+    try {
+      if (selectedCategory && selectedSource) {
+        const response = await fetch(`http://localhost:8000/feeds/${selectedCategory}`)
+        if (!response.ok) throw new Error("Failed to fetch articles")
+        const data = await response.json()
+        const filteredArticles = data.articles.filter(
+          (article) => article.source_name === selectedSource
+        )
+        setArticles(filteredArticles)
+      }
+    } catch (error) {
+      console.error("Error fetching articles:", error)
+      setArticles([])
+    } finally {
+      setLoading(false)
+    }
+  }, [selectedCategory, selectedSource])
+
   return (
     <ThemeProvider>
       <SidebarProvider 
@@ -212,7 +234,13 @@ function App() {
                       </SelectContent>
                     </Select>
                   </div>
-
+                  <button
+                    type="button"
+                    onClick={refreshArticles}
+                    className="px-4 py-2 border rounded"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </button>
                 </div>
               )}
               {loading ? (
@@ -236,16 +264,16 @@ function App() {
               )}
             </div>
 
-            {/* Article detail column - now 70% width when open */}
+            {/* Article detail column - now 70% width when open with dynamic height */}
             {selectedArticle && (
               <div
-                className={`border-l overflow-hidden transition-all duration-300 ease-in-out ${
+                className={`border-l overflow-auto transition-all duration-300 ease-in-out ${
                   isDetailVisible ? "w-[70%] opacity-100 translate-x-0" : "w-0 opacity-0 translate-x-20"
                 }`}
                 onMouseEnter={handleDetailMouseEnter}
                 onMouseLeave={handleDetailMouseLeave}
               >
-                <div className="pl-4 h-full">
+                <div className="pl-4">
                   <ArticleDetail article={selectedArticle} onClose={closeArticleDetail} />
                 </div>
               </div>

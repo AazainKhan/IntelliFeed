@@ -1,9 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
-import { Globe, MessageSquare, Volume2, Loader2, Pause } from "lucide-react"
+import { Globe, MessageSquare, Volume2, Loader2, Pause, FileText } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 
 // List of languages we support for translation
@@ -38,6 +38,18 @@ const LANGUAGE_TO_VOICE = {
     hi: "Aditi",
 }
 
+// Helper function to generate a storage key based on text and language
+const generateAudioStorageKey = (text, language) => {
+    // Create a simple hash of the text to avoid using very long keys
+    let hash = 0;
+    for (let i = 0; i < text.length; i++) {
+        const char = text.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32bit integer
+    }
+    return `tts_audio_${language}_${hash}`;
+};
+
 export function ArticleAITools({
     detectedLanguage = "en",
     articleText,
@@ -45,11 +57,30 @@ export function ArticleAITools({
     onTranslate,
     isTranslating = false,
     currentLanguage,
+    onSummarize,
+    isSummarizing = false,
 }) {
     const [selectedLanguage, setSelectedLanguage] = useState(currentLanguage || detectedLanguage)
     const [isPlayingAudio, setIsPlayingAudio] = useState(false)
     const [isLoadingAudio, setIsLoadingAudio] = useState(false)
     const [audioElement, setAudioElement] = useState(null)
+    
+    // Reset audio element when language changes
+    useEffect(() => {
+        // Update selectedLanguage when currentLanguage prop changes
+        if (currentLanguage && currentLanguage !== selectedLanguage) {
+            setSelectedLanguage(currentLanguage)
+        }
+        
+        // Clear audio if language changes
+        if (audioElement) {
+            audioElement.pause()
+            audioElement.src = ''
+            setAudioElement(null)
+            setIsPlayingAudio(false)
+            setIsLoadingAudio(false)
+        }
+    }, [currentLanguage])
 
     // Find the language name from the code
     const getLanguageName = (code) => {
@@ -59,6 +90,15 @@ export function ArticleAITools({
 
     const handleLanguageSelect = async (langCode) => {
         if (langCode === selectedLanguage) return
+
+        // Reset audio state when changing languages
+        if (audioElement) {
+            audioElement.pause()
+            audioElement.src = ''
+            setAudioElement(null)
+            setIsPlayingAudio(false)
+            setIsLoadingAudio(false)
+        }
 
         setSelectedLanguage(langCode)
 
@@ -77,6 +117,54 @@ export function ArticleAITools({
         }
 
         if (!articleText) return;
+
+        // Generate a storage key for this text and language
+        const storageKey = generateAudioStorageKey(articleText, selectedLanguage);
+        
+        // Check if we have this audio in session storage
+        const cachedAudio = sessionStorage.getItem(storageKey);
+        
+        if (cachedAudio) {
+            // Use cached audio from session storage
+            console.log("Using cached audio from session storage");
+            
+            // Create an audio element with the cached data
+            const audio = new Audio(cachedAudio);
+            setAudioElement(audio);
+
+            // Set up event handlers
+            audio.onended = () => {
+                setIsPlayingAudio(false);
+            };
+
+            audio.onerror = () => {
+                console.error("Error playing cached audio");
+                setIsPlayingAudio(false);
+                setIsLoadingAudio(false);
+                setAudioElement(null);
+                // Remove invalid cache entry
+                sessionStorage.removeItem(storageKey);
+            };
+
+            // Set playing to true once audio starts playing
+            audio.onplaying = () => {
+                setIsPlayingAudio(true);
+                setIsLoadingAudio(false);
+            };
+
+            // Start loading the audio
+            setIsLoadingAudio(true);
+            audio.play().catch(error => {
+                console.error("Error playing cached audio:", error);
+                setIsPlayingAudio(false);
+                setIsLoadingAudio(false);
+                setAudioElement(null);
+                // Remove invalid cache entry
+                sessionStorage.removeItem(storageKey);
+            });
+            
+            return;
+        }
 
         setIsLoadingAudio(true);
 
@@ -104,14 +192,23 @@ export function ArticleAITools({
             const data = await response.json();
 
             if (data.success && data.audio) {
+                // Create the audio data URL
+                const audioUrl = `data:${data.content_type};base64,${data.audio}`;
+                
+                // Store in session storage for future use
+                try {
+                    sessionStorage.setItem(storageKey, audioUrl);
+                } catch (storageError) {
+                    console.warn("Could not cache audio in session storage:", storageError);
+                    // Continue without caching if storage fails (might be quota exceeded)
+                }
+                
                 // Create an audio element and play the speech
-                const audio = new Audio(`data:${data.content_type};base64,${data.audio}`);
+                const audio = new Audio(audioUrl);
                 setAudioElement(audio);
 
                 audio.onended = () => {
                     setIsPlayingAudio(false);
-                    // Don't clear the audio element when it ends naturally
-                    // This allows the user to replay it if desired
                 };
 
                 audio.onerror = () => {
@@ -196,6 +293,23 @@ export function ArticleAITools({
                     ))}
                 </DropdownMenuContent>
             </DropdownMenu>
+
+            {/* AI Summary button */}
+            <Button
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1 px-2"
+                title="Generate AI summary"
+                onClick={onSummarize}
+                disabled={!articleText || isSummarizing}
+            >
+                {isSummarizing ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                    <FileText className="h-3.5 w-3.5" />
+                )}
+                <span>AI Summary</span>
+            </Button>
 
             {/* Text-to-Speech button */}
             <Button
