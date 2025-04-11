@@ -30,6 +30,7 @@ const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
+const SIDEBAR_AUTO_CLOSE_DELAY = 5000 // 5 seconds timeout
 
 const SidebarContext = React.createContext(null)
 
@@ -53,6 +54,7 @@ function SidebarProvider({
 }) {
   const isMobile = useIsMobile()
   const [openMobile, setOpenMobile] = React.useState(false)
+  const autoCloseTimeoutRef = React.useRef(null) // Reference to store the timeout ID
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
@@ -74,6 +76,32 @@ function SidebarProvider({
   const toggleSidebar = React.useCallback(() => {
     return isMobile ? setOpenMobile((open) => !open) : setOpen((open) => !open);
   }, [isMobile, setOpen, setOpenMobile])
+
+  // Handle mouse enter event - clear the timeout
+  const handleMouseEnter = React.useCallback(() => {
+    if (autoCloseTimeoutRef.current) {
+      clearTimeout(autoCloseTimeoutRef.current)
+      autoCloseTimeoutRef.current = null
+    }
+  }, [])
+
+  // Handle mouse leave event - start the timeout
+  const handleMouseLeave = React.useCallback(() => {
+    if (!isMobile && open) {
+      autoCloseTimeoutRef.current = setTimeout(() => {
+        setOpen(false)
+      }, SIDEBAR_AUTO_CLOSE_DELAY)
+    }
+  }, [isMobile, open, setOpen])
+
+  // Clean up timeout on unmount
+  React.useEffect(() => {
+    return () => {
+      if (autoCloseTimeoutRef.current) {
+        clearTimeout(autoCloseTimeoutRef.current)
+      }
+    }
+  }, [])
 
   // Adds a keyboard shortcut to toggle the sidebar.
   React.useEffect(() => {
@@ -103,7 +131,9 @@ function SidebarProvider({
     openMobile,
     setOpenMobile,
     toggleSidebar,
-  }), [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar])
+    handleMouseEnter,
+    handleMouseLeave,
+  }), [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar, handleMouseEnter, handleMouseLeave])
 
   return (
     <SidebarContext.Provider value={contextValue}>
@@ -137,7 +167,7 @@ function Sidebar({
   children,
   ...props
 }) {
-  const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
+  const { isMobile, state, openMobile, setOpenMobile, handleMouseEnter, handleMouseLeave } = useSidebar()
 
   if (collapsible === "none") {
     return (
@@ -209,6 +239,8 @@ function Sidebar({
             : "group-data-[collapsible=icon]:w-(--sidebar-width-icon) group-data-[side=left]:border-r group-data-[side=right]:border-l",
           className
         )}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
         {...props}>
         <div
           data-sidebar="sidebar"

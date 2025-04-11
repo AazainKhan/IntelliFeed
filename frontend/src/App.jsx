@@ -17,7 +17,8 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { ArticleCard, ArticleSkeleton } from "@/components/ArticleCard"
 import { ArticleDetail } from "@/components/ArticleDetail"
 import { Label } from "@/components/ui/label"
-import { RefreshCw } from "lucide-react"
+import { RefreshCw, MoveRight, PhoneCall } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
@@ -36,6 +37,43 @@ function setCookie(name, value, days = 7) {
   document.cookie = `${name}=${value}; ${expires}; path=/`;
 }
 
+function HomePage() {
+  return (
+    <div className="w-full">
+      <div className="container mx-auto">
+        <div className="flex gap-8 py-20 lg:py-40 items-center justify-center flex-col">
+          <div>
+            <Button 
+              variant="secondary" 
+              size="sm" 
+              className="gap-4"
+              onClick={() => window.open('https://github.com/AazainKhan/IntelliFeed', '_blank')}
+            >
+              GitHub<MoveRight className="w-4 h-4" />
+            </Button>
+          </div>
+          <div className="flex gap-4 flex-col">
+            <h1 className="text-5xl md:text-7xl max-w-2xl tracking-tighter text-center font-regular">
+              RSS feeds for the modern world
+            </h1>
+            <p className="text-lg md:text-xl leading-relaxed tracking-tight text-muted-foreground max-w-2xl text-center">
+              IntelliFeed is a smart RSS feed reader that helps you stay updated with the latest news and articles from your favorite sources. 
+            </p>
+          </div>
+          <div className="flex flex-row gap-3">
+            <Button size="lg" className="gap-4" variant="outline">
+              Jump on a call <PhoneCall className="w-4 h-4" />
+            </Button>
+            <Button size="lg" className="gap-4">
+              Sign up here <MoveRight className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [articles, setArticles] = useState([])
   const [loading, setLoading] = useState(false)
@@ -46,6 +84,7 @@ function App() {
   const [isDetailHovered, setIsDetailHovered] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false) // Default to closed
   const [sortOrder, setSortOrder] = useState("newest")
+  const [currentRoute, setCurrentRoute] = useState("home") // Default to home route
 
   // Load sidebar state on initial render
   useEffect(() => {
@@ -62,25 +101,76 @@ function App() {
     setCookie('sidebar:state', String(open));
   };
 
-  const onSourceClick = useCallback(async (category, sourceName) => {
-    setLoading(true)
-    setSelectedCategory(category)
-    setSelectedSource(sourceName)
+  const handleHomeClick = useCallback(() => {
+    setSelectedCategory(null)
+    setSelectedSource(null)
+    setCurrentRoute("home")
+    setArticles([]) // Clear the articles array to show homepage
+    
+    // Close detail view when going to home
+    setIsDetailVisible(false)
+    setTimeout(() => {
+      setSelectedArticle(null)
+    }, 300)
+  }, [])
 
+  const onSourceClick = useCallback(async (category, sourceName, sourceTitle = null) => {
+    setLoading(true)
+    
+    // For custom feeds, set the displayed source name as the title instead of the URL
+    if (category === "Custom" && sourceTitle) {
+      setSelectedSource(sourceTitle)
+    } else {
+      setSelectedSource(sourceName)
+    }
+    
+    setSelectedCategory(category)
+    setCurrentRoute("feeds")
+  
     // Close detail view when changing source
     setIsDetailVisible(false)
     setTimeout(() => {
       setSelectedArticle(null)
     }, 300) // Match transition duration
-
+  
     try {
-      const response = await fetch(`http://localhost:8000/feeds/${category}`)
-      if (!response.ok) {
-        throw new Error("Failed to fetch articles")
+      // Handle custom RSS feeds differently
+      if (category === "Custom") {
+        // For custom feeds, sourceName is the URL of the feed
+        const response = await fetch(`http://localhost:8000/custom-feed`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ 
+            url: sourceName,
+            title: sourceTitle || sourceName.split('//')[1]?.split('/')[0] || sourceName // Use provided title or domain as title
+          }),
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch articles from custom feed (${response.status})`);
+        }
+        
+        const data = await response.json();
+        
+        // Check if we actually got articles back
+        if (data.articles && data.articles.length > 0) {
+          setArticles(data.articles);
+        } else {
+          console.warn("No articles found in the feed response:", data);
+          setArticles([]);
+        }
+      } else {
+        // For regular category feeds
+        const response = await fetch(`http://localhost:8000/feeds/${category}`)
+        if (!response.ok) {
+          throw new Error("Failed to fetch articles")
+        }
+        const data = await response.json()
+        const filteredArticles = data.articles.filter((article) => article.source_name === sourceName)
+        setArticles(filteredArticles)
       }
-      const data = await response.json()
-      const filteredArticles = data.articles.filter((article) => article.source_name === sourceName)
-      setArticles(filteredArticles)
     } catch (error) {
       console.error("Error fetching articles:", error)
       setArticles([])
@@ -170,45 +260,76 @@ function App() {
         open={sidebarOpen} 
         onOpenChange={handleSidebarOpenChange}
       >
-        <AppSidebar onSourceClick={onSourceClick} />
+        <AppSidebar 
+          onSourceClick={onSourceClick} 
+          onHomeClick={handleHomeClick}
+          currentRoute={currentRoute}
+        />
         <SidebarInset>
-          <header className="flex sticky top-0 z-10 bg-background h-16 shrink-0 items-center justify-between gap-2 border-b px-4">
-            <div className="flex items-center gap-2">
+          <header className="flex sticky top-0 z-10 bg-background h-16 shrink-0 items-center px-4 border-b">
+            <div className="flex items-center gap-2 flex-1">
               <SidebarTrigger className="-ml-1" />
               <Separator orientation="vertical" className="mr-2 h-4" />
-              <Breadcrumb>
-                <BreadcrumbList>
-                  <BreadcrumbItem className="hidden md:block">
-                    <BreadcrumbLink href="#">Home</BreadcrumbLink>
-                  </BreadcrumbItem>
-                  <BreadcrumbSeparator className="hidden md:block" />
-                  {selectedCategory && (
-                    <>
-                      <BreadcrumbItem className="hidden md:block">
-                        <BreadcrumbLink href="#">{selectedCategory}</BreadcrumbLink>
+              {currentRoute !== "home" && (
+                <Breadcrumb>
+                  <BreadcrumbList>
+                    <BreadcrumbItem className="hidden md:block">
+                      <BreadcrumbLink href="#" onClick={handleHomeClick}>Home</BreadcrumbLink>
+                    </BreadcrumbItem>
+                    <BreadcrumbSeparator className="hidden md:block" />
+                    {selectedCategory && (
+                      <>
+                        <BreadcrumbItem className="hidden md:block">
+                          <BreadcrumbLink href="#">{selectedCategory}</BreadcrumbLink>
+                        </BreadcrumbItem>
+                        <BreadcrumbSeparator className="hidden md:block" />
+                      </>
+                    )}
+                    {selectedSource && (
+                      <BreadcrumbItem>
+                        <BreadcrumbPage>{selectedSource}</BreadcrumbPage>
                       </BreadcrumbItem>
-                      <BreadcrumbSeparator className="hidden md:block" />
-                    </>
-                  )}
-                  {selectedSource && (
-                    <BreadcrumbItem>
-                      <BreadcrumbPage>{selectedSource}</BreadcrumbPage>
-                    </BreadcrumbItem>
-                  )}
-                  {!selectedCategory && (
-                    <BreadcrumbItem>
-                      <BreadcrumbPage>Select a Category</BreadcrumbPage>
-                    </BreadcrumbItem>
-                  )}
-                  {selectedCategory && !selectedSource && (
-                    <BreadcrumbItem>
-                      <BreadcrumbPage>Select a Source</BreadcrumbPage>
-                    </BreadcrumbItem>
-                  )}
-                </BreadcrumbList>
-              </Breadcrumb>
+                    )}
+                    {!selectedCategory && (
+                      <BreadcrumbItem>
+                        <BreadcrumbPage>Select a Category</BreadcrumbPage>
+                      </BreadcrumbItem>
+                    )}
+                    {selectedCategory && !selectedSource && (
+                      <BreadcrumbItem>
+                        <BreadcrumbPage>Select a Source</BreadcrumbPage>
+                      </BreadcrumbItem>
+                    )}
+                  </BreadcrumbList>
+                </Breadcrumb>
+              )}
             </div>
-            <ModeToggle />
+            
+            <div className="absolute left-1/2 transform -translate-x-1/2">
+              <a href="#" onClick={(e) => {e.preventDefault(); handleHomeClick();}} className="flex items-center hover:opacity-80 transition-opacity">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="32"
+                  height="32"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="mr-1"
+                >
+                  <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+                  <path d="M2 17l10 5 10-5"></path>
+                  <path d="M2 12l10 5 10-5"></path>
+                </svg>
+                <span className="font-bold text-lg">IntelliFeed</span>
+              </a>
+            </div>
+            
+            <div className="flex justify-end flex-1">
+              <ModeToggle />
+            </div>
           </header>
 
           <div className="flex flex-1 flex-row gap-4 p-4 overflow-hidden">
@@ -216,7 +337,7 @@ function App() {
             <div
               className={`flex flex-col gap-4 overflow-auto transition-all duration-300 ease-in-out ${
                 selectedArticle ? (isDetailVisible ? "w-[30%]" : "w-full") : "w-full"
-              } ${isDetailHovered ? "blur-sm" : ""}`}
+              } ${selectedArticle && isDetailHovered ? "blur-sm" : ""}`}
             >
               {!loading && articles.length > 0 && (
                 <div className="flex justify-between items-center mb-2 gap-4">
@@ -260,7 +381,7 @@ function App() {
               ) : selectedCategory ? (
                 <div>Select a source in {selectedCategory} to view articles.</div>
               ) : (
-                <div>Select a category to view news sources.</div>
+                <HomePage />
               )}
             </div>
 

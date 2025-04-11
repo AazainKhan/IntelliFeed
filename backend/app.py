@@ -128,6 +128,120 @@ def get_feeds(category):
 
     return {"category": category, "articles": all_articles}
 
+@app.route('/custom-feed', methods=['POST'])
+def get_custom_feed():
+    """
+    Fetches and returns articles from a custom RSS feed URL.
+    """
+    request_body = app.current_request.json_body
+    if not request_body or 'url' not in request_body:
+        return {"error": "Feed URL is required"}, 400
+
+    feed_url = request_body['url']
+    feed_title = request_body.get('title', 'Custom Feed')
+    
+    try:
+        # Add proper headers to mimic a browser request
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': 'application/rss+xml, application/xml, text/xml, */*'
+        }
+        
+        # First fetch the content with requests which supports timeouts
+        try:
+            response = requests.get(feed_url, headers=headers, timeout=15)
+            response.raise_for_status()  # Raise an exception for bad status codes
+            
+            # Then parse the content with feedparser
+            feed = feedparser.parse(response.content)
+        except requests.RequestException as e:
+            app.log.error(f"Error fetching feed: {str(e)}")
+            return {"error": f"Failed to fetch feed: {str(e)}"}, 500
+        
+        if hasattr(feed, 'bozo_exception') and feed.bozo_exception is not None:
+            app.log.error(f"Error parsing feed: {feed.bozo_exception}")
+            # Continue anyway if we have entries, as some feeds have minor issues but still work
+            if not feed.entries:
+                return {"error": f"Invalid RSS feed: {str(feed.bozo_exception)}"}, 400
+        
+        # Check if we have any entries
+        if not feed.entries:
+            app.log.error(f"No entries found in feed: {feed_url}")
+            return {"error": "No articles found in this feed"}, 404
+            
+        all_articles = []
+        for entry in feed.entries:
+            article_id = str(uuid.uuid4())
+
+            # Clean the title
+            title = entry.title if hasattr(entry, 'title') else "Untitled"
+            if title:
+                title = title.replace("&#8220;", "\"")
+                title = title.replace("&#8221;", "\"")
+                title = title.replace("&#8217;", "'")
+                title = title.replace("&#8230;", "...")
+                title = re.sub(r'\[\s*\.\.\.\s*\]$', '', title)
+                title = re.sub(r'<[^>]*?>', '', title)
+
+            # Extract summary - try different fields as feeds vary
+            summary = None
+            if hasattr(entry, 'summary'):
+                summary = entry.summary
+            elif hasattr(entry, 'description'):
+                summary = entry.description
+            elif hasattr(entry, 'content') and entry.content:
+                summary = entry.content[0].value if hasattr(entry.content[0], 'value') else str(entry.content[0])
+            
+            # If still no summary, use a placeholder
+            if not summary:
+                summary = "No summary available."
+
+            # Clean the summary
+            if summary:
+                summary = summary.replace("&#8220;", "\"")
+                summary = summary.replace("&#8221;", "\"")
+                summary = summary.replace("&#8217;", "'")
+                summary = summary.replace("&#8230;", "...")
+                summary = re.sub(r'\[\s*\.\.\.\s*\]$', '', summary)
+                summary = re.sub(r'<[^>]*?>', '', summary)
+                if len(summary) > 300:
+                    summary = summary[:297] + "..."
+                elif not summary.endswith("..."):
+                    summary += "..."
+
+            # Handle publication date
+            published = None
+            if hasattr(entry, 'published'):
+                published = entry.published
+            elif hasattr(entry, 'updated'):
+                published = entry.updated
+            elif hasattr(entry, 'pubDate'):
+                published = entry.pubDate
+            else:
+                # Use current time if no date available
+                published = time.strftime("%a, %d %b %Y %H:%M:%S %z", time.localtime())
+
+            article = {
+                "id": article_id,
+                "category": "Custom",
+                "source_name": feed_title,
+                "title": title,
+                "link": entry.link if hasattr(entry, 'link') else "#",
+                "summary": summary,
+                "published": published
+            }
+            all_articles.append(article)
+            
+        return {
+            "category": "Custom",
+            "source_name": feed_title,
+            "articles": all_articles
+        }
+        
+    except Exception as e:
+        app.log.error(f"Error fetching custom feed from {feed_url}: {str(e)}")
+        return {"error": f"Failed to fetch feed: {str(e)}"}, 500
+
 @app.route('/article', methods=['POST'])
 def get_article_content():
     """
