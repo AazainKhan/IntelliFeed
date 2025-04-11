@@ -4,8 +4,9 @@
 <br />
 <div align="center">
   <a href="https://github.com/aazain/IntelliFeed">
-    <img src="images/logo.png" alt="Logo" width="80" height="80">
+<img width="428" alt="Screenshot 2025-04-11 at 3 39 48 AM" src="https://github.com/user-attachments/assets/4ed230a9-6307-40f1-b9bd-ef1e9dab373f"/>  
   </a>
+
 
 <h3 align="center">IntelliFeed</h3>
 
@@ -45,7 +46,10 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-[![Product Name Screen Shot][product-screenshot]](https://example.com)
+<img width="600" alt="Screenshot 2025-04-11 at 3 42 56 AM" src="https://github.com/user-attachments/assets/8290bf69-5579-495b-a477-3c06790ce0cc"/>
+<br>
+<br>
+
 
 IntelliFeed is a smart rss news feed aggregator designed to help users consolidate and customize content from multiple sources into a single, easy-to-use interface
 
