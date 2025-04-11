@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { AppSidebar } from "@/components/app-sidebar"
+import { BackgroundPaths } from "@/components/ui/background-paths"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -52,6 +53,7 @@ function HomePage({ onSourceClick }) {
   const [categories, setCategories] = useState({})
   const [customFeeds, setCustomFeeds] = useState([])
   const [isLoading, setIsLoading] = useState(false)
+  const [isHovering, setIsHovering] = useState(false)
 
   // Fetch all categories and feeds when the component mounts or when the select popover opens
   useEffect(() => {
@@ -177,10 +179,16 @@ function HomePage({ onSourceClick }) {
   }
 
   return (
-    <div className="w-full">
-      <div className="container mx-auto pb-20">
-        <div className="flex gap-6 py-12 lg:py-24 items-center justify-center flex-col">
-          <div>
+    <div className="w-full relative min-h-screen">
+      <div className="absolute inset-0 w-full h-full overflow-hidden">
+        <BackgroundPaths isBlurred={isHovering} />
+      </div>
+      <div className="container mx-auto pb-20 relative z-10">
+        <div className="flex gap-6 pt-32 pb-12 lg:pt-48 lg:pb-24 items-center justify-center flex-col">
+          <div 
+            onMouseEnter={() => setIsHovering(true)}
+            onMouseLeave={() => setIsHovering(false)}
+          >
             <Button
               variant="secondary"
               size="sm"
@@ -190,7 +198,11 @@ function HomePage({ onSourceClick }) {
               GitHub<MoveRight className="w-4 h-4" />
             </Button>
           </div>
-          <div className="flex gap-4 flex-col">
+          <div 
+            className="flex gap-4 flex-col"
+            onMouseEnter={() => setIsHovering(true)}
+            onMouseLeave={() => setIsHovering(false)}
+          >
             <h1 className="text-5xl md:text-7xl max-w-2xl tracking-tighter text-center font-regular">
               RSS feeds for the modern world
             </h1>
@@ -198,10 +210,14 @@ function HomePage({ onSourceClick }) {
               IntelliFeed is a smart RSS feed reader that helps you stay updated with the latest news and articles from your favorite sources.
             </p>
           </div>
-          <div className="flex flex-row gap-3 relative z-10">
+          <div 
+            className="flex flex-row gap-3 relative z-10"
+            onMouseEnter={() => setIsHovering(true)}
+            onMouseLeave={() => setIsHovering(false)}
+          >
             <Popover open={open} onOpenChange={setOpen}>
               <PopoverTrigger asChild>
-                <Button size="lg" className="gap-4" variant="outline">
+                <Button size="lg" className="gap-4">
                   Add RSS feed <Plus className="w-4 h-4" />
                 </Button>
               </PopoverTrigger>
