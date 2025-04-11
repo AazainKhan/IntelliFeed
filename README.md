@@ -90,15 +90,15 @@ Ensure you have the following:
   ```
 * Node.js
   ```sh
-    node -v
+  node -v
     ```
 * Python 3.x
   ```sh
-    python --version
+  python --version
     ```
 * AWS CLI with your credentials configured  
   ```sh
-    aws --version
+  aws --version
     ```
 * Hugging Face API Key (paste it in .env_sample file and rename file to .env)
   ```sh
@@ -121,7 +121,7 @@ Ensure you have the following:
    ```
 4. Install Python dependencies usign pipenv
    ```sh
-    pipenv install
+   pipenv install
     ```
 5. cd into frontend directory
     ```sh
