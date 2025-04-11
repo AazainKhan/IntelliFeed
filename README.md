@@ -84,7 +84,7 @@ Follow these instructions to set up IntelliFeed locally.
 
 ### Prerequisites
 
-Ensure you have the following installed:
+Ensure you have the following:
 * npm
   ```sh
   npm install npm@latest -g
@@ -97,10 +97,14 @@ Ensure you have the following installed:
   ```sh
     python --version
     ```
-* AWS CLI
+* AWS CLI with your credentials configured  
   ```sh
     aws --version
     ```
+* Hugging Face API Key (paste it in .env_sample file and rename file to .env)
+  ```sh
+  HF_API_KEY="INSERT_HUGGINGFACE_API_KEY"
+  ```
 
 ### Installation
 
@@ -112,15 +116,19 @@ Ensure you have the following installed:
    ```sh
    cd backend
    ```
-3. Install Python dependencies usign pipenv
+3. Install pipenv
+   ```sh
+   pip install pipenv
+   ```
+4. Install Python dependencies usign pipenv
    ```sh
     pipenv install
     ```
-4. cd into frontend directory
+5. cd into frontend directory
     ```sh
     cd ../frontend
     ```
-5. Install Node.js dependencies 
+6. Install Node.js dependencies 
     ```sh
    npm install
     ```
