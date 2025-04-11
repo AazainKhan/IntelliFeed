@@ -47,6 +47,13 @@
 ## About The Project
 
 <img width="600" alt="Screenshot 2025-04-11 at 3 42 56 AM" src="https://github.com/user-attachments/assets/8290bf69-5579-495b-a477-3c06790ce0cc"/>
+
+<br>
+<br>
+
+<img width="600" alt="Screenshot 2025-04-11 at 3 42 56 AM" src="https://github.com/user-attachments/assets/8c016d7c-a65a-4d9f-a06e-ab45d040181d"/>
+
+
 <br>
 <br>
 
