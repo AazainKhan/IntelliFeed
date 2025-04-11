@@ -35,7 +35,6 @@
         <li><a href="#installation">Installation</a></li>
       </ul>
     </li>
-    <li><a href="#usage">Usage</a></li>
     <li><a href="#contributing">Contributing</a></li>
   </ol>
 </details>
@@ -54,10 +53,16 @@
 
 
 <br>
-<br>
-
 
 IntelliFeed is a smart rss news feed aggregator designed to help users consolidate and customize content from multiple sources into a single, easy-to-use interface
+
+<br>
+
+It uses AWS Chalice for the backend and React with Tailwind CSS for the frontend. The AI chatbot is powered by Hugging Face's models, allowing users to interact with the news content in a conversational manner.
+
+<br>
+
+Uses AWS services like Comprehend, S3, Polly, Translate, and Aws Lambda to provide a seamless experience.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -70,6 +75,7 @@ IntelliFeed is a smart rss news feed aggregator designed to help users consolida
 [![Python][Python]][Python-url]
 [![Chalice][Chalice]][Chalice-url]
 [![AWS][AWS]][AWS-url]
+[![Hugging Face][Hugging Face]][Hugging Face-url]
 [![Shadcn][Shadcn]][Shadcn-url]
 [![Tailwind][Tailwind]][Tailwind-url]
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -158,7 +164,7 @@ Ensure you have the following:
 
 
 <!-- CONTRIBUTING -->
-## Contributing for my team
+## Contributing
 
 1. Fork the Project
 2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
@@ -185,3 +191,5 @@ Ensure you have the following:
 [Shadcn-url]: https://shadcn.dev/
 [Tailwind]: https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=for-the-badge&logo=tailwind-css&logoColor=white
 [Tailwind-url]: https://tailwindcss.com/
+[Hugging Face]: https://img.shields.io/badge/Hugging_Face-FF4B00?style=for-the-badge&logo=huggingface&logoColor=white
+[Hugging Face-url]: https://huggingface.co/
