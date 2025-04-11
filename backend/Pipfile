@@ -7,10 +7,12 @@ name = "pypi"
 boto3 = "*"
 chalice = "*"
 feedparser = "*"
-requests = "*"
 beautifulsoup4 = "*"
 newspaper3k = "*"
 lxml = {extras = ["html_clean"], version = "*"}
+huggingface-hub = "*"
+requests = "*"
+dotenv = "*"
 
 [dev-packages]
 

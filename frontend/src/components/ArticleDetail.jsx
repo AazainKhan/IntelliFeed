@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { X, ExternalLink } from "lucide-react"
 import { ArticleAITools } from "./ArticleAITools"
+import { ArticleChat } from "./ArticleChat"
 
 export function ArticleDetail({ article, onClose }) {
     const [isContentVisible, setIsContentVisible] = useState(false)
@@ -18,6 +19,7 @@ export function ArticleDetail({ article, onClose }) {
     const [isTranslating, setIsTranslating] = useState(false)
     const [currentLanguage, setCurrentLanguage] = useState("en")
     const [showAISummary, setShowAISummary] = useState(false)
+    const [showAIChat, setShowAIChat] = useState(false)
     const [aiSummary, setAISummary] = useState("")
     const [isSummarizing, setIsSummarizing] = useState(false)
 
@@ -43,6 +45,7 @@ export function ArticleDetail({ article, onClose }) {
             originalTextRef.current = ""
             translatedTextRef.current = ""
             setShowAISummary(false)
+            setShowAIChat(false)
             setAISummary("")
         }
 
@@ -164,6 +167,8 @@ export function ArticleDetail({ article, onClose }) {
 
         setIsSummarizing(true)
         setShowAISummary(true)
+        // Close chat if it's open
+        setShowAIChat(false)
 
         // Simulate AI summary generation (replace with actual API call)
         try {
@@ -214,17 +219,32 @@ export function ArticleDetail({ article, onClose }) {
         }
     }
 
+    // Handle opening AI chat
+    const handleOpenAIChat = () => {
+        setShowAIChat(true)
+        // Close summary if it's open
+        setShowAISummary(false)
+    }
+
     // Close the AI summary panel
     const handleCloseSummary = () => {
         setShowAISummary(false)
     }
 
+    // Close the AI chat panel
+    const handleCloseChat = () => {
+        setShowAIChat(false)
+    }
+
     if (!article) return null
 
+    // Determine if any AI panel is open
+    const isAIPanelOpen = showAISummary || showAIChat
+
     return (
-        <div className={`flex transition-all duration-300 ease-in-out ${showAISummary ? "space-x-4" : ""}`}>
-            {/* Main article content - shrinks when summary is shown */}
-            <Card className={`shadow-md overflow-auto transition-all duration-300 ${showAISummary ? "w-2/3" : "w-full"}`}>
+        <div className={`flex transition-all duration-300 ease-in-out ${isAIPanelOpen ? "space-x-4" : ""}`}>
+            {/* Main article content - shrinks when AI panel is shown */}
+            <Card className={`shadow-md overflow-auto transition-all duration-300 ${isAIPanelOpen ? "w-2/3" : "w-full"}`}>
                 <CardHeader className="sticky top-0 bg-card z-10 border-b">
                     <div className="flex justify-between items-start">
                         <div className="flex items-center pr-8">
@@ -259,8 +279,6 @@ export function ArticleDetail({ article, onClose }) {
                 <CardContent
                     className={`pt-6 transition-all duration-300 ease-in-out ${isContentVisible ? "opacity-100" : "opacity-0"}`}
                 >
-
-
                     {isLoading ? (
                         <div className="space-y-4">
                             <Skeleton className="h-4 w-full" />
@@ -289,7 +307,6 @@ export function ArticleDetail({ article, onClose }) {
                         <div className="rich-text-content mx-auto max-w-2xl">
                             <div className="mb-6 flex flex-wrap items-center gap-2">
                                 <Badge variant="secondary">{article.category}</Badge>
-
                                 {/* AI Tools - using the existing component */}
                                 <div className="ml-auto">
                                     <ArticleAITools
@@ -300,6 +317,8 @@ export function ArticleDetail({ article, onClose }) {
                                         currentLanguage={currentLanguage}
                                         onSummarize={handleGenerateSummary}
                                         isSummarizing={isSummarizing}
+                                        onAIChat={handleOpenAIChat}
+                                        isAIChatActive={showAIChat}
                                     />
                                 </div>
                             </div>
@@ -313,7 +332,6 @@ export function ArticleDetail({ article, onClose }) {
                                     }}
                                 />
                             )}
-
                             {/* Show translated content if available, otherwise show original content */}
                             {isTranslating ? (
                                 <div className="space-y-4">
@@ -338,7 +356,7 @@ export function ArticleDetail({ article, onClose }) {
 
             {/* AI Summary Card - appears when summary is requested */}
             {showAISummary && (
-                <Card className="shadow-md overflow-auto w-1/3 transition-all duration-300 ease-in-out">
+                <Card className="shadow-md overflow-auto w-1/3 max-h-[700px] transition-all duration-300 ease-in-out">
                     <CardHeader className="sticky top-0 bg-card z-10 border-b">
                         <div className="flex justify-between items-center">
                             <CardTitle className="text-xl font-bold">AI Summary</CardTitle>
@@ -364,6 +382,18 @@ export function ArticleDetail({ article, onClose }) {
                         )}
                     </CardContent>
                 </Card>
+            )}
+
+            {/* AI Chat Card - appears when chat is requested */}
+            {showAIChat && (
+                <div className="w-1/3 transition-all duration-300 ease-in-out">
+                    <ArticleChat
+                        article={article}
+                        articleText={getCurrentText()}
+                        onClose={handleCloseChat}
+                        isVisible={showAIChat}
+                    />
+                </div>
             )}
         </div>
     )
