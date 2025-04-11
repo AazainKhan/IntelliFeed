@@ -143,7 +143,7 @@ Ensure you have the following:
    ```
 3. Run the backend server
    ```sh
-    chalice local
+   chalice local
     ```
 4. cd into frontend directory
     ```sh
