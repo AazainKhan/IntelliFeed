@@ -61,6 +61,7 @@ export function ArticleAITools({
     isSummarizing = false,
     onAIChat,
     isAIChatActive = false,
+    setStopAudioFunction, // New prop to expose stop function to parent
 }) {
     const [selectedLanguage, setSelectedLanguage] = useState(currentLanguage || detectedLanguage)
     const [isPlayingAudio, setIsPlayingAudio] = useState(false)
@@ -83,6 +84,29 @@ export function ArticleAITools({
             setIsLoadingAudio(false)
         }
     }, [currentLanguage])
+
+    // Expose stopAudio function to parent component
+    useEffect(() => {
+        if (setStopAudioFunction) {
+            setStopAudioFunction(() => stopAudio);
+        }
+        
+        // Clean up audio when component unmounts
+        return () => {
+            stopAudio();
+        };
+    }, [setStopAudioFunction]);
+
+    // Function to stop audio playback
+    const stopAudio = () => {
+        if (audioElement) {
+            audioElement.pause();
+            audioElement.src = "";
+            setAudioElement(null);
+            setIsPlayingAudio(false);
+            setIsLoadingAudio(false);
+        }
+    };
 
     // Find the language name from the code
     const getLanguageName = (code) => {
@@ -302,17 +326,17 @@ export function ArticleAITools({
                 </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* AI Summary button */}
+            {/* AI Sentiment Analysis button */}
             <Button
                 variant={isSummarizing ? "secondary" : "outline"}
                 size="sm"
                 className="h-7 gap-1 px-2"
-                title="Generate AI summary"
+                title="Analyze article sentiment"
                 onClick={onSummarize}
                 disabled={!articleText || isSummarizing}
             >
                 {isSummarizing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
-                <span>AI Summary</span>
+                <span>Sentiment Analysis</span>
             </Button>
 
             {/* Text-to-Speech button */}

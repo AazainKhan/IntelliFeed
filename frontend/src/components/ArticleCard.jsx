@@ -33,6 +33,11 @@ function timeAgo(dateString) {
     return `${Math.floor(seconds)} second${Math.floor(seconds) === 1 ? "" : "s"} ago`
 }
 
+// Helper function to generate a unique storage key for each article
+function getArticleStorageKey(url) {
+    return `intellifeed_article_${url.replace(/[^a-z0-9]/gi, '_')}`;
+}
+
 export function ArticleCard({ article, onArticleClick }) {
     const [imageUrl, setImageUrl] = useState(null)
     const [isLoading, setIsLoading] = useState(true)
@@ -42,6 +47,27 @@ export function ArticleCard({ article, onArticleClick }) {
         // Fetch the article preview to get the image URL
         if (article && article.link) {
             setIsLoading(true)
+            
+            // Check if we already have this article data in session storage
+            const storageKey = getArticleStorageKey(article.link);
+            const cachedData = sessionStorage.getItem(storageKey);
+            
+            if (cachedData) {
+                try {
+                    // Use cached data if available
+                    const data = JSON.parse(cachedData);
+                    if (data.top_image) {
+                        setImageUrl(data.top_image);
+                    }
+                    setIsLoading(false);
+                    return;
+                } catch (error) {
+                    console.error("Error parsing cached article data:", error);
+                    // Continue with fetch if parsing fails
+                }
+            }
+            
+            // Fetch from server if not in cache
             fetch("http://localhost:8000/article", {
                 method: "POST",
                 headers: {
@@ -60,6 +86,13 @@ export function ArticleCard({ article, onArticleClick }) {
                         setImageUrl(data.top_image)
                     }
                     setIsLoading(false)
+                    
+                    // Save the fetched data to session storage
+                    try {
+                        sessionStorage.setItem(storageKey, JSON.stringify(data));
+                    } catch (err) {
+                        console.error("Error saving article to session storage:", err);
+                    }
                 })
                 .catch((err) => {
                     console.error("Error fetching article preview:", err)

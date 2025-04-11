@@ -599,3 +599,102 @@ def get_cache_key(messages, system_message):
         "system": system_message[:100]  # Just use the beginning of the system message
     }, sort_keys=True)
     return hashlib.md5(cache_data.encode()).hexdigest()
+
+
+import boto3
+from botocore.exceptions import ClientError
+
+@app.route('/sentiment-analysis', methods=['POST'])
+def analyze_sentiment():
+    """
+    Analyzes the sentiment of article text using Amazon Comprehend.
+    """
+    request_body = app.current_request.json_body
+    if not request_body or 'text' not in request_body:
+        return {"error": "Text is required"}, 400
+
+    text = request_body['text']
+    language_code = request_body.get('language', 'en')
+
+    # Map of language codes to Amazon Comprehend language codes
+    language_mapping = {
+        'en': 'en',
+        'es': 'es',
+        'fr': 'fr',
+        'de': 'de',
+        'it': 'it',
+        'pt': 'pt',
+        'ar': 'ar',
+        'hi': 'hi',
+        'ja': 'ja',
+        'ko': 'ko',
+        'zh': 'zh',
+        'zh-TW': 'zh-TW',
+    }
+
+    # Use English as fallback for unsupported languages
+    comprehend_language = language_mapping.get(language_code, 'en')
+
+    try:
+        # Initialize the Comprehend client with explicit region
+        comprehend = boto3.client('comprehend') 
+
+        # Limit text length to avoid exceeding Comprehend limits (5KB)
+        if len(text.encode('utf-8')) > 5000:
+            text = text.encode('utf-8')[:4900].decode('utf-8', errors='ignore') + "..."
+
+        # Call Amazon Comprehend to analyze sentiment
+        sentiment_response = comprehend.detect_sentiment(
+            Text=text,
+            LanguageCode=comprehend_language
+        )
+
+        # Extract sentiment scores
+        sentiment_scores = sentiment_response.get('SentimentScore', {})
+        dominant_sentiment = sentiment_response.get('Sentiment', 'NEUTRAL').lower()
+
+        # Calculate an overall sentiment score from -1 (very negative) to 1 (very positive)
+        positive_score = sentiment_scores.get('Positive', 0)
+        negative_score = sentiment_scores.get('Negative', 0)
+        neutral_score = sentiment_scores.get('Neutral', 0)
+        mixed_score = sentiment_scores.get('Mixed', 0)
+
+        # Calculate sentiment score based on dominant sentiment with proper weighting
+        if dominant_sentiment == 'positive':
+            sentiment_score = positive_score
+        elif dominant_sentiment == 'negative':
+            sentiment_score = -negative_score
+        elif dominant_sentiment == 'mixed':
+            sentiment_score = (positive_score - negative_score) / 2
+        else:  # neutral
+            sentiment_score = 0  # Set neutral sentiment score to 0
+
+        # Also detect key phrases if text is not too long
+        key_phrases = []
+        if len(text.split()) < 1000:  # Increased word limit for key phrases
+            key_phrase_response = comprehend.detect_key_phrases(
+                Text=text,
+                LanguageCode=comprehend_language
+            )
+            key_phrases = [
+                phrase['Text'] for phrase in key_phrase_response.get('KeyPhrases', [])
+                if phrase.get('Score', 0) > 0.5  # Only keep high confidence phrases
+            ][:15]  # Limit to top 15 phrases
+
+        return {
+            "success": True,
+            "dominant_sentiment": dominant_sentiment,
+            "sentiment_score": sentiment_score,
+            "scores": {
+                "positive": sentiment_scores.get('Positive', 0),
+                "negative": sentiment_scores.get('Negative', 0),
+                "neutral": sentiment_scores.get('Neutral', 0),
+                "mixed": sentiment_scores.get('Mixed', 0)
+            },
+            "key_phrases": key_phrases,
+            "language": comprehend_language
+        }
+
+    except ClientError as e:
+        app.log.error(f"Error calling Amazon Comprehend: {str(e)}")
+        return {"error": f"Failed to analyze sentiment: {str(e)}"}, 500

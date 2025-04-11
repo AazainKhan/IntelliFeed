@@ -31,6 +31,7 @@ export function ArticleChat({ article, articleText, onClose, isVisible }) {
     const [selectedModel, setSelectedModel] = useState("default")
     const inputRef = useRef(null)
     const scrollAreaRef = useRef(null)
+    const abortControllerRef = useRef(null)
 
     // Focus input when chat opens
     useEffect(() => {
@@ -58,6 +59,15 @@ export function ArticleChat({ article, articleText, onClose, isVisible }) {
             setIsFirstRequest(true)
         }
     }, [article, articleText])
+
+    // Clean up abort controller on unmount
+    useEffect(() => {
+        return () => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort()
+            }
+        }
+    }, [])
 
     // Handle typing animation
     useEffect(() => {
@@ -103,11 +113,41 @@ export function ArticleChat({ article, articleText, onClose, isVisible }) {
         }
     }, [messages, typingIndex])
 
+    const stopGeneration = () => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort()
+            abortControllerRef.current = null
+        }
+        
+        // Remove loading messages and add a notice
+        setMessages((prev) => {
+            const filtered = prev.filter((msg) => !msg.isLoading && !msg.isTyping)
+            return [
+                ...filtered,
+                {
+                    role: "assistant",
+                    content: "Generation stopped.",
+                },
+            ]
+        })
+        
+        setIsLoading(false)
+        setIsTyping(false)
+        setCurrentTypingMessage("")
+        setTypingIndex(0)
+    }
+
     const handleSendMessage = async (e) => {
         // Prevent form submission from scrolling the page
         if (e) e.preventDefault()
 
-        if (!inputMessage.trim() || isLoading) return
+        // If we're loading, this should act as a stop button
+        if (isLoading) {
+            stopGeneration()
+            return
+        }
+
+        if (!inputMessage.trim()) return
 
         const userMessage = {
             role: "user",
@@ -133,6 +173,10 @@ export function ArticleChat({ article, articleText, onClose, isVisible }) {
         }
 
         try {
+            // Create a new AbortController for this request
+            abortControllerRef.current = new AbortController()
+            const signal = abortControllerRef.current.signal
+            
             // Call the backend API
             const response = await fetch("http://localhost:8000/chat", {
                 method: "POST",
@@ -145,6 +189,7 @@ export function ArticleChat({ article, articleText, onClose, isVisible }) {
                     article_title: article.title,
                     model: selectedModel, // Include selected model in API request
                 }),
+                signal, // Add the abort signal
             })
 
             if (!response.ok) {
@@ -175,6 +220,11 @@ export function ArticleChat({ article, articleText, onClose, isVisible }) {
                 throw new Error(data.error || "Unknown error")
             }
         } catch (error) {
+            // Don't show error if it was an abort
+            if (error.name === 'AbortError') {
+                return
+            }
+            
             console.error("Error getting AI response:", error)
             // Remove any loading messages and add the error message
             setMessages((prev) => {
@@ -188,7 +238,19 @@ export function ArticleChat({ article, articleText, onClose, isVisible }) {
                 ]
             })
         } finally {
-            setIsLoading(false)
+            if (!signal?.aborted) {
+                setIsLoading(false)
+                abortControllerRef.current = null
+            }
+        }
+    }
+
+    // Handle click on send/stop button
+    const handleButtonClick = () => {
+        if (isLoading) {
+            stopGeneration()
+        } else {
+            handleSendMessage()
         }
     }
 
@@ -306,11 +368,12 @@ export function ArticleChat({ article, articleText, onClose, isVisible }) {
                         
                         <PromptInputAction tooltip={isLoading ? "Stop generation" : "Send message"}>
                             <Button
-                                type="submit"
+                                type="button"
                                 variant="default"
                                 size="icon"
                                 className="h-8 w-8 rounded-full"
-                                disabled={!inputMessage.trim() || isLoading}
+                                disabled={!isLoading && !inputMessage.trim()}
+                                onClick={handleButtonClick}
                             >
                                 {isLoading ? <Square className="h-4 w-4 fill-current" /> : <Send className="h-4 w-4" />}
                                 <span className="sr-only">{isLoading ? "Stop generation" : "Send message"}</span>
