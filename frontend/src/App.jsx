@@ -17,8 +17,14 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { ArticleCard, ArticleSkeleton } from "@/components/ArticleCard"
 import { ArticleDetail } from "@/components/ArticleDetail"
 import { Label } from "@/components/ui/label"
-import { RefreshCw, MoveRight, PhoneCall } from "lucide-react"
+import { RefreshCw, MoveRight, Plus, ListFilter } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
@@ -37,11 +43,143 @@ function setCookie(name, value, days = 7) {
   document.cookie = `${name}=${value}; ${expires}; path=/`;
 }
 
-function HomePage() {
+function HomePage({ onSourceClick }) {
+  const [open, setOpen] = useState(false)
+  const [selectPopoverOpen, setSelectPopoverOpen] = useState(false)
+  const [feedUrl, setFeedUrl] = useState("")
+  const [feedTitle, setFeedTitle] = useState("")
+  const [feedError, setFeedError] = useState("")
+  const [categories, setCategories] = useState({})
+  const [customFeeds, setCustomFeeds] = useState([])
+  const [isLoading, setIsLoading] = useState(false)
+
+  // Fetch all categories and feeds when the component mounts or when the select popover opens
+  useEffect(() => {
+    if (selectPopoverOpen) {
+      fetchCategories();
+      loadCustomFeeds();
+    }
+  }, [selectPopoverOpen]);
+
+  // Function to fetch all categories and sources from the API
+  const fetchCategories = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('http://localhost:8000/categories');
+      if (!response.ok) {
+        throw new Error('Failed to fetch categories');
+      }
+      const data = await response.json();
+      setCategories(data);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      // Set categories to empty object to avoid undefined errors
+      setCategories({});
+      // Show custom feeds anyway even if categories fetch fails
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Function to load custom feeds from localStorage
+  const loadCustomFeeds = () => {
+    const savedFeeds = localStorage.getItem('intellifeed_custom_rss');
+    if (savedFeeds) {
+      try {
+        setCustomFeeds(JSON.parse(savedFeeds));
+      } catch (err) {
+        console.error("Error parsing saved RSS feeds:", err);
+        setCustomFeeds([]);
+      }
+    } else {
+      // Make sure customFeeds is initialized as an empty array
+      setCustomFeeds([]);
+    }
+  };
+
+  // Function to handle RSS feed selection
+  const handleSelectFeed = (category, sourceName, sourceTitle = null) => {
+    if (onSourceClick) {
+      onSourceClick(category, sourceName, sourceTitle);
+    }
+    setSelectPopoverOpen(false);
+  };
+
+  // Function to handle adding a new RSS feed
+  const handleAddRSS = (e) => {
+    e.preventDefault()
+    setFeedError("")
+    
+    if (!feedUrl) {
+      setFeedError("Feed URL is required");
+      return;
+    }
+
+    // Validate URL format
+    let processedUrl = feedUrl;
+    if (!processedUrl.startsWith('http://') && !processedUrl.startsWith('https://')) {
+      processedUrl = 'https://' + processedUrl;
+    }
+
+    // Get the title or use domain name as fallback
+    const title = feedTitle || processedUrl.split('//')[1]?.split('/')[0] || processedUrl;
+    
+    // Save to localStorage for the sidebar
+    const savedFeeds = localStorage.getItem('intellifeed_custom_rss');
+    let customRSSFeeds = [];
+    
+    if (savedFeeds) {
+      try {
+        customRSSFeeds = JSON.parse(savedFeeds);
+        
+        // Check if feed already exists
+        if (customRSSFeeds.some(feed => feed.url === processedUrl)) {
+          setFeedError("This RSS feed URL already exists");
+          return;
+        }
+      } catch (err) {
+        console.error("Error parsing saved RSS feeds:", err);
+      }
+    }
+    
+    // Add the new feed
+    const newFeed = { 
+      title: title,
+      url: processedUrl
+    };
+    
+    customRSSFeeds.push(newFeed);
+    
+    // Save back to localStorage
+    localStorage.setItem('intellifeed_custom_rss', JSON.stringify(customRSSFeeds));
+    
+    // Reset form and close popover
+    setFeedUrl("");
+    setFeedTitle("");
+    setOpen(false);
+    
+    // Directly call onSourceClick to load the new feed immediately
+    if (onSourceClick) {
+      // Call with a slight delay to ensure localStorage is updated
+      setTimeout(() => {
+        onSourceClick("Custom", processedUrl, title);
+      }, 100);
+    }
+    
+    // Force the sidebar to update by dispatching a custom event
+    const event = new CustomEvent('custom-feeds-updated');
+    window.dispatchEvent(event);
+  }
+
+  // Function to show the sidebar with feeds
+  const handleSelectRSS = () => {
+    setSelectPopoverOpen(true);
+  }
+
   return (
     <div className="w-full">
-      <div className="container mx-auto">
-        <div className="flex gap-8 py-20 lg:py-40 items-center justify-center flex-col">
+      <div className="container mx-auto pb-20">
+        <div className="flex gap-6 py-12 lg:py-24 items-center justify-center flex-col">
           <div>
             <Button 
               variant="secondary" 
@@ -60,13 +198,143 @@ function HomePage() {
               IntelliFeed is a smart RSS feed reader that helps you stay updated with the latest news and articles from your favorite sources. 
             </p>
           </div>
-          <div className="flex flex-row gap-3">
-            <Button size="lg" className="gap-4" variant="outline">
-              Jump on a call <PhoneCall className="w-4 h-4" />
-            </Button>
-            <Button size="lg" className="gap-4">
-              Sign up here <MoveRight className="w-4 h-4" />
-            </Button>
+          <div className="flex flex-row gap-3 relative z-10">
+            <Popover open={open} onOpenChange={setOpen}>
+              <PopoverTrigger asChild>
+                <Button size="lg" className="gap-4" variant="outline">
+                  Add RSS feed <Plus className="w-4 h-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent 
+                className="w-80 max-h-[calc(100vh-180px)] overflow-y-auto translate-y-2 popover-content-styled" 
+                side="bottom" 
+                align="center"
+                alignOffset={0}
+                sideOffset={10}
+                collisionPadding={{ top: 20, bottom: 20 }}
+                sticky="always"
+                avoidCollisions={false}
+              >
+                <form onSubmit={handleAddRSS}>
+                  <div className="grid gap-4">
+                  <div className="grid gap-2">
+                      <Label htmlFor="title">Title</Label>
+                      <Input 
+                        id="title" 
+                        placeholder="My Feed" 
+                        value={feedTitle}
+                        onChange={(e) => setFeedTitle(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="url">URL</Label>
+                      <Input 
+                        id="url" 
+                        placeholder="https://example.com/feed.xml" 
+                        value={feedUrl}
+                        onChange={(e) => setFeedUrl(e.target.value)}
+                        required
+                      />
+                    </div>
+                    {feedError && (
+                      <div className="text-destructive text-sm">{feedError}</div>
+                    )}
+                    <Button type="submit">Add Feed</Button>
+                  </div>
+                </form>
+              </PopoverContent>
+            </Popover>
+            
+            <Popover open={selectPopoverOpen} onOpenChange={setSelectPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button size="lg" className="gap-4">
+                  Select RSS feed <ListFilter className="w-4 h-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent 
+                className="w-80 max-h-[40vh] overflow-y-auto popover-content-styled" 
+                side="right" 
+                align="start"
+                sideOffset={10}
+                collisionPadding={{ top: 20, bottom: 20, right: 20 }}
+                sticky="always"
+                avoidCollisions={true}
+              >
+                <div className="grid gap-2 p-2">
+                  <div className="space-y-1">
+                    <h4 className="font-medium leading-none">Available RSS Feeds</h4>
+                    <p className="text-xs text-muted-foreground">
+                      Select a feed to view its content
+                    </p>
+                  </div>
+                  
+                  {isLoading ? (
+                    <div className="flex justify-center p-4">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900 dark:border-white"></div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {/* Custom feeds section */}
+                      {customFeeds.length > 0 && (
+                        <div className="space-y-2">
+                          <h5 className="text-sm font-medium border-b pb-1">Custom Feeds</h5>
+                          <ul className="space-y-1">
+                            {customFeeds.map((feed, index) => (
+                              <li key={`custom-${index}`}>
+                                <Button 
+                                  variant="ghost"
+                                  size="sm"
+                                  className="w-full justify-start font-normal truncate"
+                                  onClick={() => handleSelectFeed("Custom", feed.url, feed.title)}
+                                  title={feed.url}
+                                >
+                                  {feed.title}
+                                </Button>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      
+                      {/* Built-in categories */}
+                      {Object.keys(categories).length > 0 ? (
+                        Object.entries(categories).map(([category, sources]) => (
+                          <div key={category} className="space-y-2">
+                            <h5 className="text-sm font-medium border-b pb-1">{category}</h5>
+                            <ul className="space-y-1">
+                              {sources.map((source) => (
+                                <li key={`${category}-${source.source_name}`}>
+                                  <Button 
+                                    variant="ghost"
+                                    size="sm"
+                                    className="w-full justify-start font-normal truncate"
+                                    onClick={() => handleSelectFeed(category, source.source_name)}
+                                  >
+                                    {source.source_name}
+                                  </Button>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-2 text-sm text-muted-foreground">
+                          {isLoading ? "Loading feeds..." : "No pre-defined feeds available"}
+                        </div>
+                      )}
+                      
+                      {/* Show message when no feeds are available at all */}
+                      {!isLoading && Object.keys(categories).length === 0 && customFeeds.length === 0 && (
+                        <div className="text-center py-4 text-sm">
+                          No feeds available. Try adding a custom feed.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
       </div>
@@ -261,7 +529,7 @@ function App() {
         onOpenChange={handleSidebarOpenChange}
       >
         <AppSidebar 
-          onSourceClick={onSourceClick} 
+          onSourceClick={onSourceClick}  
           onHomeClick={handleHomeClick}
           currentRoute={currentRoute}
         />
@@ -381,14 +649,14 @@ function App() {
               ) : selectedCategory ? (
                 <div>Select a source in {selectedCategory} to view articles.</div>
               ) : (
-                <HomePage />
+                <HomePage onSourceClick={onSourceClick} />
               )}
             </div>
 
             {/* Article detail column - now 70% width when open with dynamic height */}
             {selectedArticle && (
               <div
-                className={`border-l overflow-auto transition-all duration-300 ease-in-out ${
+                className={`border-l overflow-auto scrollbar-styled transition-all duration-300 ease-in-out ${
                   isDetailVisible ? "w-[70%] opacity-100 translate-x-0" : "w-0 opacity-0 translate-x-20"
                 }`}
                 onMouseEnter={handleDetailMouseEnter}
@@ -407,3 +675,4 @@ function App() {
 }
 
 export default App
+

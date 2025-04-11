@@ -263,3 +263,88 @@
 .rich-text-content code {
   @apply bg-muted px-1.5 py-0.5 rounded text-sm;
 }
+
+/* Custom scrollbar styles */
+/* For sidebar and popover components */
+.scrollbar-styled,
+[data-sidebar="content"],
+.popover-content-styled {
+  /* For Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+}
+
+/* For Chrome, Safari, Edge */
+.scrollbar-styled::-webkit-scrollbar,
+[data-sidebar="content"]::-webkit-scrollbar,
+.popover-content-styled::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-styled::-webkit-scrollbar-track,
+[data-sidebar="content"]::-webkit-scrollbar-track,
+.popover-content-styled::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-styled::-webkit-scrollbar-thumb,
+[data-sidebar="content"]::-webkit-scrollbar-thumb,
+.popover-content-styled::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 3px;
+}
+
+.scrollbar-styled::-webkit-scrollbar-thumb:hover,
+[data-sidebar="content"]::-webkit-scrollbar-thumb:hover,
+.popover-content-styled::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* Hide scrollbar when not hovering for a cleaner look */
+.scrollbar-styled:not(:hover)::-webkit-scrollbar-thumb,
+[data-sidebar="content"]:not(:hover)::-webkit-scrollbar-thumb {
+  background-color: transparent;
+}
+
+/* Dark mode adjustments */
+.dark .scrollbar-styled::-webkit-scrollbar-thumb,
+.dark [data-sidebar="content"]::-webkit-scrollbar-thumb,
+.dark .popover-content-styled::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--muted-foreground) / 0.4);
+}
+
+.dark .scrollbar-styled::-webkit-scrollbar-thumb:hover,
+.dark [data-sidebar="content"]::-webkit-scrollbar-thumb:hover,
+.dark .popover-content-styled::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--muted-foreground) / 0.7);
+}
+
+/* Article content scrollbar */
+.overflow-auto {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+}
+
+.overflow-auto::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.overflow-auto::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.overflow-auto::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 3px;
+}
+
+/* Dark mode scrollbars for all overflow content */
+.dark .overflow-auto::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--muted-foreground) / 0.5);
+}
+
+.dark .overflow-auto::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--muted-foreground) / 0.7);
+}

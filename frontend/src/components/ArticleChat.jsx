@@ -96,6 +96,7 @@ export function ArticleChat({ article, articleText, onClose, isVisible }) {
                     setIsTyping(false)
                     setCurrentTypingMessage("")
                     setTypingIndex(0)
+                    setIsLoading(false) // Add this line to ensure loading indicators are removed
                 }, 300) // Pause for 300ms when done typing
 
                 return () => clearTimeout(completeTimer)

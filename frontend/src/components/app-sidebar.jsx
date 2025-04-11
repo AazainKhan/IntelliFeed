@@ -59,6 +59,28 @@ export function AppSidebar({ onSourceClick, onHomeClick, currentRoute = "home", 
         }
     }, [customRSSFeeds]);
 
+    // Add an event listener to refresh custom feeds when they change
+    useEffect(() => {
+        const handleCustomFeedsUpdate = () => {
+            const savedFeeds = localStorage.getItem('intellifeed_custom_rss');
+            if (savedFeeds) {
+                try {
+                    setCustomRSSFeeds(JSON.parse(savedFeeds));
+                } catch (err) {
+                    console.error("Error parsing saved RSS feeds:", err);
+                }
+            }
+        };
+
+        // Listen for the custom event
+        window.addEventListener('custom-feeds-updated', handleCustomFeedsUpdate);
+
+        // Clean up on unmount
+        return () => {
+            window.removeEventListener('custom-feeds-updated', handleCustomFeedsUpdate);
+        };
+    }, []);
+
     const handleSourceClick = (category, sourceName, sourceTitle = null) => {
         setSelectedCategory(category);
         onSourceClick(category, sourceName, sourceTitle);
