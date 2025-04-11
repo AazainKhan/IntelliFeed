@@ -70,8 +70,9 @@ IntelliFeed is a smart rss news feed aggregator designed to help users consolida
 [![Node.js][Node.js]][Node-url]
 [![Python][Python]][Python-url]
 [![Chalice][Chalice]][Chalice-url]
-    [![AWS][AWS]][AWS-url]
-
+[![AWS][AWS]][AWS-url]
+[![Shadcn][Shadcn]][Shadcn-url]
+[![Tailwind][Tailwind]][Tailwind-url]
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
@@ -173,3 +174,7 @@ Ensure you have the following installed:
 [Chalice-url]: https://aws.amazon.com/chalice/
 [AWS]: https://img.shields.io/badge/AWS-232F3E?style=for-the-badge&logo=amazonaws&logoColor=white
 [AWS-url]: https://aws.amazon.com/
+[Shadcn]: https://img.shields.io/badge/Shadcn-000000?style=for-the-badge&logo=shadcn&logoColor=white
+[Shadcn-url]: https://shadcn.dev/
+[Tailwind]: https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=for-the-badge&logo=tailwind-css&logoColor=white
+[Tailwind-url]: https://tailwindcss.com/
