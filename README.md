@@ -96,15 +96,15 @@ Ensure you have the following:
   ```
 * Node.js
   ```sh
-    node -v
+  node -v
     ```
 * Python 3.x
   ```sh
-    python --version
+  python --version
     ```
 * AWS CLI with your credentials configured  
   ```sh
-    aws --version
+  aws --version
     ```
 * Hugging Face API Key (paste it in .env_sample file and rename file to .env)
   ```sh
@@ -127,7 +127,7 @@ Ensure you have the following:
    ```
 4. Install Python dependencies usign pipenv
    ```sh
-    pipenv install
+   pipenv install
     ```
 5. cd into frontend directory
     ```sh
@@ -149,7 +149,7 @@ Ensure you have the following:
    ```
 3. Run the backend server
    ```sh
-    chalice local
+   chalice local
     ```
 4. cd into frontend directory
     ```sh
@@ -188,7 +188,7 @@ Ensure you have the following:
 [AWS]: https://img.shields.io/badge/AWS-232F3E?style=for-the-badge&logo=amazonaws&logoColor=white
 [AWS-url]: https://aws.amazon.com/
 [Shadcn]: https://img.shields.io/badge/Shadcn-000000?style=for-the-badge&logo=shadcn&logoColor=white
-[Shadcn-url]: https://shadcn.dev/
+[Shadcn-url]: https://ui.shadcn.com/
 [Tailwind]: https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=for-the-badge&logo=tailwind-css&logoColor=white
 [Tailwind-url]: https://tailwindcss.com/
 [Hugging Face]: https://img.shields.io/badge/Hugging_Face-FF4B00?style=for-the-badge&logo=huggingface&logoColor=white
