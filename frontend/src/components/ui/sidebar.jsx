@@ -30,7 +30,7 @@ const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
-const SIDEBAR_AUTO_CLOSE_DELAY = 5000 // 5 seconds timeout
+const SIDEBAR_AUTO_CLOSE_DELAY = 8000 // 5 seconds timeout
 
 const SidebarContext = React.createContext(null)
 

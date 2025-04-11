@@ -192,7 +192,7 @@ export function AppSidebar({ onSourceClick, onHomeClick, currentRoute = "home", 
                 </div>
                 
                 {/* Search bar now placed below Categories heading */}
-                <div className="px-2 py-1">
+                <div className="px-2 py-2">
                     <SearchForm
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -205,7 +205,7 @@ export function AppSidebar({ onSourceClick, onHomeClick, currentRoute = "home", 
                     <Collapsible
                         key={category}
                         title={category}
-                        defaultOpen
+                        defaultOpen={false}
                         className="group/collapsible"
                     >
                         <SidebarGroup>

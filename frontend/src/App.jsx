@@ -109,7 +109,7 @@ function HomePage({ onSourceClick }) {
   const handleAddRSS = (e) => {
     e.preventDefault()
     setFeedError("")
-    
+
     if (!feedUrl) {
       setFeedError("Feed URL is required");
       return;
@@ -123,15 +123,15 @@ function HomePage({ onSourceClick }) {
 
     // Get the title or use domain name as fallback
     const title = feedTitle || processedUrl.split('//')[1]?.split('/')[0] || processedUrl;
-    
+
     // Save to localStorage for the sidebar
     const savedFeeds = localStorage.getItem('intellifeed_custom_rss');
     let customRSSFeeds = [];
-    
+
     if (savedFeeds) {
       try {
         customRSSFeeds = JSON.parse(savedFeeds);
-        
+
         // Check if feed already exists
         if (customRSSFeeds.some(feed => feed.url === processedUrl)) {
           setFeedError("This RSS feed URL already exists");
@@ -141,23 +141,23 @@ function HomePage({ onSourceClick }) {
         console.error("Error parsing saved RSS feeds:", err);
       }
     }
-    
+
     // Add the new feed
-    const newFeed = { 
+    const newFeed = {
       title: title,
       url: processedUrl
     };
-    
+
     customRSSFeeds.push(newFeed);
-    
+
     // Save back to localStorage
     localStorage.setItem('intellifeed_custom_rss', JSON.stringify(customRSSFeeds));
-    
+
     // Reset form and close popover
     setFeedUrl("");
     setFeedTitle("");
     setOpen(false);
-    
+
     // Directly call onSourceClick to load the new feed immediately
     if (onSourceClick) {
       // Call with a slight delay to ensure localStorage is updated
@@ -165,7 +165,7 @@ function HomePage({ onSourceClick }) {
         onSourceClick("Custom", processedUrl, title);
       }, 100);
     }
-    
+
     // Force the sidebar to update by dispatching a custom event
     const event = new CustomEvent('custom-feeds-updated');
     window.dispatchEvent(event);
@@ -181,9 +181,9 @@ function HomePage({ onSourceClick }) {
       <div className="container mx-auto pb-20">
         <div className="flex gap-6 py-12 lg:py-24 items-center justify-center flex-col">
           <div>
-            <Button 
-              variant="secondary" 
-              size="sm" 
+            <Button
+              variant="secondary"
+              size="sm"
               className="gap-4"
               onClick={() => window.open('https://github.com/AazainKhan/IntelliFeed', '_blank')}
             >
@@ -195,7 +195,7 @@ function HomePage({ onSourceClick }) {
               RSS feeds for the modern world
             </h1>
             <p className="text-lg md:text-xl leading-relaxed tracking-tight text-muted-foreground max-w-2xl text-center">
-              IntelliFeed is a smart RSS feed reader that helps you stay updated with the latest news and articles from your favorite sources. 
+              IntelliFeed is a smart RSS feed reader that helps you stay updated with the latest news and articles from your favorite sources.
             </p>
           </div>
           <div className="flex flex-row gap-3 relative z-10">
@@ -205,76 +205,71 @@ function HomePage({ onSourceClick }) {
                   Add RSS feed <Plus className="w-4 h-4" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent 
-                className="w-80 max-h-[calc(100vh-180px)] overflow-y-auto translate-y-2 popover-content-styled" 
-                side="bottom" 
+              <PopoverContent
+                className="w-80 p-4"
+                side="bottom"
                 align="center"
-                alignOffset={0}
-                sideOffset={10}
-                collisionPadding={{ top: 20, bottom: 20 }}
-                sticky="always"
-                avoidCollisions={false}
               >
-                <form onSubmit={handleAddRSS}>
-                  <div className="grid gap-4">
-                  <div className="grid gap-2">
-                      <Label htmlFor="title">Title</Label>
-                      <Input 
-                        id="title" 
-                        placeholder="My Feed" 
+                <div className="space-y-2">
+                  <h4 className="font-medium leading-none">Add RSS Feed</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Enter a title and URL for the RSS feed
+                  </p>
+                  <form onSubmit={handleAddRSS} className="flex flex-col gap-2">
+                    <div className="space-y-1">
+                      <label htmlFor="title" className="text-xs font-medium">Title</label>
+                      <Input
+                        id="title"
+                        placeholder="My Feed"
                         value={feedTitle}
                         onChange={(e) => setFeedTitle(e.target.value)}
+                        className="w-full"
                         required
                       />
                     </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="url">URL</Label>
-                      <Input 
-                        id="url" 
-                        placeholder="https://example.com/feed.xml" 
+                    <div className="space-y-1">
+                      <label htmlFor="url" className="text-xs font-medium">URL</label>
+                      <Input
+                        id="url"
+                        placeholder="https://example.com/feed.xml"
                         value={feedUrl}
                         onChange={(e) => setFeedUrl(e.target.value)}
+                        className="w-full"
                         required
                       />
                     </div>
                     {feedError && (
-                      <div className="text-destructive text-sm">{feedError}</div>
+                      <p className="text-sm text-destructive">{feedError}</p>
                     )}
-                    <Button type="submit">Add Feed</Button>
-                  </div>
-                </form>
+                    <Button type="submit" className="w-full mt-2">Add Feed</Button>
+                  </form>
+                </div>
               </PopoverContent>
             </Popover>
-            
+
             <Popover open={selectPopoverOpen} onOpenChange={setSelectPopoverOpen}>
               <PopoverTrigger asChild>
                 <Button size="lg" className="gap-4">
                   Select RSS feed <ListFilter className="w-4 h-4" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent 
-                className="w-80 max-h-[40vh] overflow-y-auto popover-content-styled" 
-                side="right" 
+              <PopoverContent
+                className="w-80 p-4"
+                side="right"
                 align="start"
-                sideOffset={10}
-                collisionPadding={{ top: 20, bottom: 20, right: 20 }}
-                sticky="always"
-                avoidCollisions={true}
               >
-                <div className="grid gap-2 p-2">
-                  <div className="space-y-1">
-                    <h4 className="font-medium leading-none">Available RSS Feeds</h4>
-                    <p className="text-xs text-muted-foreground">
-                      Select a feed to view its content
-                    </p>
-                  </div>
-                  
+                <div className="space-y-2">
+                  <h4 className="font-medium leading-none">Available RSS Feeds</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Select a feed to view its content
+                  </p>
+
                   {isLoading ? (
                     <div className="flex justify-center p-4">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900 dark:border-white"></div>
                     </div>
                   ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-2">
                       {/* Custom feeds section */}
                       {customFeeds.length > 0 && (
                         <div className="space-y-2">
@@ -282,7 +277,7 @@ function HomePage({ onSourceClick }) {
                           <ul className="space-y-1">
                             {customFeeds.map((feed, index) => (
                               <li key={`custom-${index}`}>
-                                <Button 
+                                <Button
                                   variant="ghost"
                                   size="sm"
                                   className="w-full justify-start font-normal truncate"
@@ -296,7 +291,7 @@ function HomePage({ onSourceClick }) {
                           </ul>
                         </div>
                       )}
-                      
+
                       {/* Built-in categories */}
                       {Object.keys(categories).length > 0 ? (
                         Object.entries(categories).map(([category, sources]) => (
@@ -305,7 +300,7 @@ function HomePage({ onSourceClick }) {
                             <ul className="space-y-1">
                               {sources.map((source) => (
                                 <li key={`${category}-${source.source_name}`}>
-                                  <Button 
+                                  <Button
                                     variant="ghost"
                                     size="sm"
                                     className="w-full justify-start font-normal truncate"
@@ -323,7 +318,7 @@ function HomePage({ onSourceClick }) {
                           {isLoading ? "Loading feeds..." : "No pre-defined feeds available"}
                         </div>
                       )}
-                      
+
                       {/* Show message when no feeds are available at all */}
                       {!isLoading && Object.keys(categories).length === 0 && customFeeds.length === 0 && (
                         <div className="text-center py-4 text-sm">
@@ -374,7 +369,7 @@ function App() {
     setSelectedSource(null)
     setCurrentRoute("home")
     setArticles([]) // Clear the articles array to show homepage
-    
+
     // Close detail view when going to home
     setIsDetailVisible(false)
     setTimeout(() => {
@@ -384,23 +379,23 @@ function App() {
 
   const onSourceClick = useCallback(async (category, sourceName, sourceTitle = null) => {
     setLoading(true)
-    
+
     // For custom feeds, set the displayed source name as the title instead of the URL
     if (category === "Custom" && sourceTitle) {
       setSelectedSource(sourceTitle)
     } else {
       setSelectedSource(sourceName)
     }
-    
+
     setSelectedCategory(category)
     setCurrentRoute("feeds")
-  
+
     // Close detail view when changing source
     setIsDetailVisible(false)
     setTimeout(() => {
       setSelectedArticle(null)
     }, 300) // Match transition duration
-  
+
     try {
       // Handle custom RSS feeds differently
       if (category === "Custom") {
@@ -410,18 +405,18 @@ function App() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             url: sourceName,
             title: sourceTitle || sourceName.split('//')[1]?.split('/')[0] || sourceName // Use provided title or domain as title
           }),
         });
-        
+
         if (!response.ok) {
           throw new Error(`Failed to fetch articles from custom feed (${response.status})`);
         }
-        
+
         const data = await response.json();
-        
+
         // Check if we actually got articles back
         if (data.articles && data.articles.length > 0) {
           setArticles(data.articles);
@@ -523,13 +518,13 @@ function App() {
 
   return (
     <ThemeProvider>
-      <SidebarProvider 
-        defaultOpen={sidebarOpen} 
-        open={sidebarOpen} 
+      <SidebarProvider
+        defaultOpen={sidebarOpen}
+        open={sidebarOpen}
         onOpenChange={handleSidebarOpenChange}
       >
-        <AppSidebar 
-          onSourceClick={onSourceClick}  
+        <AppSidebar
+          onSourceClick={onSourceClick}
           onHomeClick={handleHomeClick}
           currentRoute={currentRoute}
         />
@@ -572,9 +567,9 @@ function App() {
                 </Breadcrumb>
               )}
             </div>
-            
+
             <div className="absolute left-1/2 transform -translate-x-1/2">
-              <a href="#" onClick={(e) => {e.preventDefault(); handleHomeClick();}} className="flex items-center hover:opacity-80 transition-opacity">
+              <a href="#" onClick={(e) => { e.preventDefault(); handleHomeClick(); }} className="flex items-center hover:opacity-80 transition-opacity">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   width="32"
@@ -594,7 +589,7 @@ function App() {
                 <span className="font-bold text-lg">IntelliFeed</span>
               </a>
             </div>
-            
+
             <div className="flex justify-end flex-1">
               <ModeToggle />
             </div>
@@ -603,9 +598,8 @@ function App() {
           <div className="flex flex-1 flex-row gap-4 p-4 overflow-hidden">
             {/* Articles list column - now 30% width when detail is open */}
             <div
-              className={`flex flex-col gap-4 overflow-auto transition-all duration-300 ease-in-out ${
-                selectedArticle ? (isDetailVisible ? "w-[30%]" : "w-full") : "w-full"
-              } ${selectedArticle && isDetailHovered ? "blur-sm" : ""}`}
+              className={`flex flex-col gap-4 overflow-auto transition-all duration-300 ease-in-out ${selectedArticle ? (isDetailVisible ? "w-[30%]" : "w-full") : "w-full"
+                } ${selectedArticle && isDetailHovered ? "blur-sm" : ""}`}
             >
               {!loading && articles.length > 0 && (
                 <div className="flex justify-between items-center mb-2 gap-4">
@@ -656,9 +650,8 @@ function App() {
             {/* Article detail column - now 70% width when open with dynamic height */}
             {selectedArticle && (
               <div
-                className={`border-l overflow-auto scrollbar-styled transition-all duration-300 ease-in-out ${
-                  isDetailVisible ? "w-[70%] opacity-100 translate-x-0" : "w-0 opacity-0 translate-x-20"
-                }`}
+                className={`border-l overflow-auto scrollbar-styled transition-all duration-300 ease-in-out ${isDetailVisible ? "w-[70%] opacity-100 translate-x-0" : "w-0 opacity-0 translate-x-20"
+                  }`}
                 onMouseEnter={handleDetailMouseEnter}
                 onMouseLeave={handleDetailMouseLeave}
               >
