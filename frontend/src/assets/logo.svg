@@ -1,0 +1,16 @@
+<svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="32"
+                  height="32"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="mr-1"
+                >
+                  <rect width="24" height="24" fill="black" x="0" y="0" />
+                  <path d="M12 2L2 7l10 5 10-5-10-5z" stroke="white"></path>
+                  <path d="M2 17l10 5 10-5" stroke="white"></path>
+                  <path d="M2 12l10 5 10-5" stroke="white"></path>
+                </svg>
