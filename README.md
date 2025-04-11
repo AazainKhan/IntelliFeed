@@ -13,7 +13,6 @@
   <p align="center">
     A smart and customizable rss news feed aggregator.
     <br />
-    <a href="https://github.com/aazain/IntelliFeed">View Demo</a>
   </p>
 </div>
 
