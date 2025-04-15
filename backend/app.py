@@ -903,16 +903,3 @@ def analyze_sentiment():
             "success": True,
             "dominant_sentiment": dominant_sentiment,
             "sentiment_score": sentiment_score,
-            "scores": {
-                "positive": sentiment_scores.get('Positive', 0),
-                "negative": sentiment_scores.get('Negative', 0),
-                "neutral": sentiment_scores.get('Neutral', 0),
-                "mixed": sentiment_scores.get('Mixed', 0)
-            },
-            "key_phrases": key_phrases,
-            "language": comprehend_language
-        }
-
-    except ClientError as e:
-        app.log.error(f"Error calling Amazon Comprehend: {str(e)}")
-        return {"error": f"Failed to analyze sentiment: {str(e)}"}, 500
