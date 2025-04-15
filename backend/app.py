@@ -29,11 +29,11 @@ translate_client = boto3.client('translate')
 # Initialize Hugging Face API key from env file
 HF_API_KEY = os.getenv('HF_API_KEY')
 
-# Free tier models that work well for chat
+# Free tier models that work well for chat - updated with smaller models
 HF_MODELS = {
-    "default": "mistralai/Mistral-7B-Instruct-v0.2",  # Good balance of quality and speed
-    "small": "google/flan-t5-base",                   # Faster but less capable
-    "large": "meta-llama/Llama-2-7b-chat-hf"          # More capable but slower
+    "default": "google/flan-t5-large",         # Smaller than Mistral but still powerful
+    "small": "google/flan-t5-base",            # Faster but less capable
+    "large": "facebook/opt-1.3b"               # Larger model but still under size limit
 }
 
 # Choose which model to use
@@ -553,7 +553,6 @@ def generate_huggingface_response(messages, system_message, model=DEFAULT_MODEL)
     Generate a response using Hugging Face's Inference API (free tier).
     """
     # Format the conversation for the model
-    # Different models expect different formats, but this works for most instruction-tuned models
     conversation = format_conversation_for_model(messages, system_message, model)
     
     # Call the Hugging Face Inference API
@@ -562,16 +561,20 @@ def generate_huggingface_response(messages, system_message, model=DEFAULT_MODEL)
         "Content-Type": "application/json"
     }
     
+    # Set up base parameters
     payload = {
         "inputs": conversation,
         "parameters": {
-            "max_new_tokens": 256,  # Lower for free tier to avoid timeouts
+            "max_new_tokens": 250,
             "temperature": 0.7,
             "top_p": 0.9,
             "do_sample": True,
-            "return_full_text": False  # Only return the generated text, not the prompt
         }
     }
+    
+    # Only add return_full_text for models that support it (not T5 models)
+    if not any(model_name in model.lower() for model_name in ["flan-t5", "t5"]):
+        payload["parameters"]["return_full_text"] = False
     
     # Add retry logic for API calls
     max_retries = 3
@@ -596,14 +599,19 @@ def generate_huggingface_response(messages, system_message, model=DEFAULT_MODEL)
             
             result = response.json()
             
-            # Extract the generated text
+            # Extract the generated text - adapt extraction for different model responses
+            assistant_message = ""
             if isinstance(result, list) and len(result) > 0:
                 if "generated_text" in result[0]:
                     assistant_message = result[0]["generated_text"]
                 else:
                     assistant_message = result[0]
-            elif isinstance(result, dict) and "generated_text" in result:
-                assistant_message = result["generated_text"]
+            elif isinstance(result, dict):
+                if "generated_text" in result:
+                    assistant_message = result["generated_text"]
+                else:
+                    # For T5 models, the result might be just the text
+                    assistant_message = str(result)
             else:
                 assistant_message = str(result)
             
@@ -713,7 +721,6 @@ def get_cache_key(messages, system_message):
         "system": system_message[:100]  # Just use the beginning of the system message
     }, sort_keys=True)
     return hashlib.md5(cache_data.encode()).hexdigest()
-
 
 import boto3
 from botocore.exceptions import ClientError

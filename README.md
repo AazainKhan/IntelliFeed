@@ -17,7 +17,6 @@
 </div>
 
 
-
 <!-- TABLE OF CONTENTS -->
 <details>
   <summary>Table of Contents</summary>
@@ -62,9 +61,8 @@ It uses AWS Chalice for the backend and React with Tailwind CSS for the frontend
 
 <br>
 
-Uses AWS services like Comprehend, S3, Polly, Translate, and Aws Lambda to provide a seamless experience.
+Uses AWS services like Comprehend, Polly, Translate, and Aws Lambda to provide a seamless experience.
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
 
@@ -78,7 +76,6 @@ Uses AWS services like Comprehend, S3, Polly, Translate, and Aws Lambda to provi
 [![Hugging Face][Hugging Face]][Hugging Face-url]
 [![Shadcn][Shadcn]][Shadcn-url]
 [![Tailwind][Tailwind]][Tailwind-url]
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
 
@@ -160,7 +157,6 @@ Ensure you have the following:
     npm run dev
     ```
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
 <!-- CONTRIBUTING -->
@@ -171,7 +167,6 @@ Ensure you have the following:
 3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
 4. Push to the Branch (`git push origin feature/AmazingFeature`)
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
 <!-- MARKDOWN LINKS & IMAGES -->
