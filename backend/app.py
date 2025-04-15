@@ -14,6 +14,7 @@ import base64
 from botocore.exceptions import ClientError
 import os
 from dotenv import load_dotenv, find_dotenv
+import html
 
 dotenv_path = find_dotenv()
 load_dotenv(dotenv_path)
@@ -485,6 +486,31 @@ def translate_text():
         app.log.error(f"Error calling Amazon Translate: {str(e)}")
         return {"error": f"Failed to translate text: {str(e)}"}, 500
 
+def generate_local_fallback_response(messages, article_text, article_title):
+    """
+    Generate a simple response locally when APIs are unavailable.
+    """
+    app.log.info("Using local fallback response generator")
+    
+    # Get the latest user question
+    user_question = "your question"
+    for msg in reversed(messages):
+        if msg['role'] == 'user':
+            user_question = msg['content']
+            break
+    
+    # Construct a generic but helpful response
+    response = f"I'd be happy to help with your question about \"{article_title}\". " + \
+               f"However, I'm currently experiencing connection issues with my knowledge base. " + \
+               f"Your question was: \"{user_question}\"\n\n" + \
+               f"Here are some general ways you might approach this:\n" + \
+               f"1. Look for specific keywords in the article related to your question\n" + \
+               f"2. Consider the main points discussed in the article\n" + \
+               f"3. Think about how the article's topic connects to your question\n\n" + \
+               f"Once I'm back online, I'll be able to provide a more specific answer."
+               
+    return response
+
 @app.route('/chat', methods=['POST'])
 def chat_with_article():
     """
@@ -496,18 +522,27 @@ def chat_with_article():
         return {"error": "Messages are required"}, 400
     
     messages = request_body['messages']
+    
+    # Log the size of article text to debug truncation issues
     article_text = request_body.get('article_text', '')
+    article_text_size = len(article_text)
     article_title = request_body.get('article_title', '')
+    
+    app.log.info(f"Processing chat: Article title: '{article_title[:30]}...' Text size: {article_text_size} bytes")
     
     # Get the selected model from the request, or use default
     selected_model_id = request_body.get('model', 'default')
     model = HF_MODELS.get(selected_model_id, DEFAULT_MODEL)
     
-    # Truncate article text to avoid token limits
-    # Free tier has stricter limits, so we'll be more conservative
-    max_article_length = 2000
+    # Truncate article text to avoid token limits - be more conservative
+    max_article_length = 1800  # Reduced from 2000 to ensure we stay within limits
     if len(article_text) > max_article_length:
+        app.log.warning(f"Article text truncated from {len(article_text)} to {max_article_length} chars")
         article_text = article_text[:max_article_length] + "..."
+    
+    # Clean the article text to remove any HTML or problematic characters
+    article_text = html.unescape(article_text)
+    article_text = re.sub(r'<[^>]*?>', '', article_text)
     
     # Prepare the system message with article context
     system_message = f"""You are an AI assistant that helps users understand news articles.
@@ -538,6 +573,7 @@ Keep your responses concise and focused on the article content.
     except Exception as e:
         app.log.error(f"Error generating chat response: {str(e)}")
         app.log.warning(f"Primary model failed: {str(e)}. Trying fallback model...")
+        
         try:
             # Try with a smaller, more reliable model
             response = generate_huggingface_response(messages, system_message, model=HF_MODELS["small"])
@@ -546,7 +582,19 @@ Keep your responses concise and focused on the article content.
             return response
         except Exception as fallback_e:
             app.log.error(f"Fallback model also failed: {str(fallback_e)}")
-            return {"error": "Failed to generate response"}, 500
+            
+            # Generate a local fallback response when all API calls fail
+            fallback_message = generate_local_fallback_response(messages, article_text, article_title)
+            fallback_response = {
+                "success": True,
+                "message": fallback_message,
+                "role": "assistant",
+                "fallback": True
+            }
+            
+            # Cache this fallback response temporarily (shorter TTL)
+            response_cache[cache_key] = fallback_response
+            return fallback_response
 
 def generate_huggingface_response(messages, system_message, model=DEFAULT_MODEL):
     """
@@ -554,6 +602,9 @@ def generate_huggingface_response(messages, system_message, model=DEFAULT_MODEL)
     """
     # Format the conversation for the model
     conversation = format_conversation_for_model(messages, system_message, model)
+    
+    # Log the size of the conversation for debugging
+    app.log.info(f"Sending request to model {model} with conversation size: {len(conversation)} chars")
     
     # Call the Hugging Face Inference API
     headers = {
@@ -580,22 +631,39 @@ def generate_huggingface_response(messages, system_message, model=DEFAULT_MODEL)
     max_retries = 3
     for attempt in range(max_retries):
         try:
+            # Use a longer timeout to accommodate model loading
             response = requests.post(
                 f"https://api-inference.huggingface.co/models/{model}",
                 headers=headers,
-                json=payload
+                json=payload,
+                timeout=30  # Increased timeout
             )
             
             # Check if the model is still loading
-            if response.status_code == 503 and "currently loading" in response.text:
+            if response.status_code == 503 and "currently loading" in response.text.lower():
                 app.log.info(f"Model {model} is still loading. Waiting...")
                 time.sleep(10)  # Wait for model to load
                 continue
                 
+            # Check for service unavailability
+            if response.status_code == 503:
+                error_text = response.text[:500] + ("..." if len(response.text) > 500 else "")
+                app.log.error(f"Hugging Face API error: Service unavailable (503)")
+                
+                # If last attempt, raise a specific error for better fallback handling
+                if attempt == max_retries - 1:
+                    raise Exception("Hugging Face service is currently unavailable")
+                    
+                # Otherwise wait and retry
+                wait_time = 5 * (attempt + 1)  # Exponential backoff
+                app.log.warning(f"Attempt {attempt + 1} failed: Service unavailable. Retrying in {wait_time} seconds...")
+                time.sleep(wait_time)
+                continue
+                
             # Check for other errors
             if response.status_code != 200:
-                app.log.error(f"Hugging Face API error: {response.text}")
-                raise Exception(f"API returned status code {response.status_code}: {response.text}")
+                app.log.error(f"Hugging Face API error: {response.status_code}")
+                raise Exception(f"API returned status code {response.status_code}")
             
             result = response.json()
             
@@ -624,11 +692,19 @@ def generate_huggingface_response(messages, system_message, model=DEFAULT_MODEL)
                 "role": "assistant"
             }
             
-        except Exception as e:
+        except requests.exceptions.Timeout:
+            app.log.warning(f"Request timed out on attempt {attempt + 1}")
             if attempt == max_retries - 1:
-                raise
-            app.log.warning(f"Attempt {attempt + 1} failed: {str(e)}. Retrying...")
+                raise Exception("API request timed out after multiple attempts")
             time.sleep(2 * (attempt + 1))  # Exponential backoff
+            
+        except Exception as e:
+            if "service is currently unavailable" in str(e).lower() and attempt < max_retries - 1:
+                wait_time = 5 * (attempt + 1)  # Exponential backoff
+                app.log.warning(f"Attempt {attempt + 1} failed: {str(e)}. Retrying in {wait_time} seconds...")
+                time.sleep(wait_time)
+            else:
+                raise
     
     # If we get here, all retries failed
     raise Exception("All retry attempts failed")
@@ -638,6 +714,9 @@ def format_conversation_for_model(messages, system_message, model):
     Format the conversation based on the model being used.
     Different models expect different prompt formats.
     """
+    # Check if the model is T5-based
+    is_t5_model = "t5" in model.lower()
+    
     if "mistral" in model.lower():
         # Mistral format
         conversation = f"<s>[INST] {system_message} [/INST]</s>\n\n"
@@ -656,8 +735,8 @@ def format_conversation_for_model(messages, system_message, model):
         
         return conversation
         
-    elif "llama" in model.lower():
-        # Llama 2 format
+    elif "llama" in model.lower() or "opt" in model.lower():
+        # Llama 2 / OPT format - similar with system message
         conversation = f"<s>[INST] <<SYS>>\n{system_message}\n<</SYS>>\n\n"
         
         for i, msg in enumerate(messages):
@@ -677,22 +756,36 @@ def format_conversation_for_model(messages, system_message, model):
         return conversation
         
     else:
-        # Generic format for other models (T5, FLAN, etc.)
-        conversation = f"System: {system_message}\n\n"
-        
-        for msg in messages:
-            if msg['role'] == 'system':
-                continue
-            elif msg['role'] == 'user':
-                conversation += f"User: {msg['content']}\n"
-            elif msg['role'] == 'assistant':
-                conversation += f"Assistant: {msg['content']}\n"
-        
-        # Add the final prompt for the model to continue
-        if messages and messages[-1]['role'] == 'user':
-            conversation += "Assistant: "
-        
-        return conversation
+        # Generic format for T5 models (FLAN-T5, etc.)
+        # T5 models prefer a more straightforward format
+        if is_t5_model:
+            # For T5, simplify to focus on the question and context
+            user_question = ""
+            for msg in reversed(messages):
+                if msg['role'] == 'user':
+                    user_question = msg['content']
+                    break
+                    
+            # T5 performs better with a targeted prompt that includes the question
+            conversation = f"Answer this question based on the article context.\n\nArticle: {system_message}\n\nQuestion: {user_question}\n\nAnswer:"
+            return conversation
+        else:
+            # For other models, use a more conversational format
+            conversation = f"System: {system_message}\n\n"
+            
+            for msg in messages:
+                if msg['role'] == 'system':
+                    continue
+                elif msg['role'] == 'user':
+                    conversation += f"User: {msg['content']}\n"
+                elif msg['role'] == 'assistant':
+                    conversation += f"Assistant: {msg['content']}\n"
+            
+            # Add the final prompt for the model to continue
+            if messages and messages[-1]['role'] == 'user':
+                conversation += "Assistant: "
+            
+            return conversation
 
 def clean_assistant_response(text):
     """
@@ -702,8 +795,12 @@ def clean_assistant_response(text):
     if text.startswith("Assistant:"):
         text = text[len("Assistant:"):].strip()
     
+    # Remove any "Answer:" prefix from T5 models
+    if text.startswith("Answer:"):
+        text = text[len("Answer:"):].strip()
+    
     # Remove any trailing "User:" or similar that might be generated
-    stop_phrases = ["User:", "Human:", "<s>", "[INST]"]
+    stop_phrases = ["User:", "Human:", "<s>", "[INST]", "Question:"]
     for phrase in stop_phrases:
         if phrase in text:
             text = text.split(phrase)[0].strip()
